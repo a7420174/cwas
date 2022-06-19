@@ -1,5 +1,7 @@
+import random
 import pandas as pd
 import pytest
+
 from cwas.binomial_test import BinomialTest
 
 
@@ -13,6 +15,7 @@ class BinomialTestMock(BinomialTest):
         pass
 
 
+
 @pytest.fixture(scope="module")
 def sample_info_path(cwas_workspace):
     return cwas_workspace / "samples.txt"
@@ -23,9 +26,12 @@ def adj_factor_path(cwas_workspace):
     return cwas_workspace / "adj_factors.txt"
 
 
-@pytest.fixture(scope="module")
-def args(sample_info_path, adj_factor_path):
-    return ["-s", str(sample_info_path), "-a", str(adj_factor_path)]
+@pytest.fixture(scope="module", params=[True, False])
+def args(sample_info_path, adj_factor_path, request):
+    args_list = ["-s", str(sample_info_path), "-a", str(adj_factor_path)]
+    if request.param:
+        args_list.append("-n")
+    return args_list
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -43,11 +49,11 @@ def setup_and_teardown(cwas_workspace, sample_info_path, adj_factor_path):
 def categorization_result():
     results = [
         {"SAMPLE": "Sample1", "A_B_C_D_E": 5, "a_b_c_d_e": 4},
-        {"SAMPLE": "Sample2", "A_B_C_D_E": 10, "a_b_c_d_e": 16},
+        {"SAMPLE": "Sample2", "A_B_C_D_E": 10, "a_b_c_d_e": 0},
         {"SAMPLE": "Sample3", "A_B_C_D_E": 12, "a_b_c_d_e": 8},
         {"SAMPLE": "Sample4", "A_B_C_D_E": 7, "a_b_c_d_e": 11},
         {"SAMPLE": "Sample5", "A_B_C_D_E": 8, "a_b_c_d_e": 6},
-        {"SAMPLE": "Sample6", "A_B_C_D_E": 15, "a_b_c_d_e": 10},
+        {"SAMPLE": "Sample6", "A_B_C_D_E": 15, "a_b_c_d_e": 0},
     ]
     return pd.DataFrame(results).set_index("SAMPLE")
 
@@ -127,11 +133,11 @@ def test_adjust_categorization_result(binomial_test):
     binomial_test._adjust_categorization_result()
     categorization_result = binomial_test.categorization_result
     assert categorization_result.loc["Sample1"].to_list() == [10, 8]
-    assert categorization_result.loc["Sample2"].to_list() == [5, 8]
+    assert categorization_result.loc["Sample2"].to_list() == [5, 0]
     assert categorization_result.loc["Sample3"].to_list() == [3, 2]
     assert categorization_result.loc["Sample4"].to_list() == [7, 11]
     assert categorization_result.loc["Sample5"].to_list() == [4, 3]
-    assert categorization_result.loc["Sample6"].to_list() == [3, 2]
+    assert categorization_result.loc["Sample6"].to_list() == [3, 0]
 
 
 def test_adjust_categorization_with_inconsistent_sample(
@@ -157,8 +163,8 @@ def test_run(binomial_test):
         "conservation",
         "gencode",
         "region",
-        "Case_DNV_Count",
-        "Ctrl_DNV_Count",
+        "Case_Variant_Count",
+        "Ctrl_Variant_Count",
         "Relative_Risk",
         "P",
         "P_1side",
@@ -168,6 +174,8 @@ def test_run(binomial_test):
         "A_B_C_D_E",
         "a_b_c_d_e",
     ]
+    if binomial_test.use_n_carrier_per_category:
+        expected_columns = [colname.replace("_Variant_Count", "_Carrier_Count") for colname in expected_columns]
     assert list(binomial_test._result.columns.values) == expected_columns
     assert list(binomial_test._result.index.values) == expected_index
 
@@ -186,19 +194,37 @@ def test_ctrl_cnt(binomial_test):
 
 def test_case_variant_cnt(binomial_test):
     binomial_test._adjust_categorization_result()
-    assert list(binomial_test.case_variant_cnt) == [13, 10]
+    if not binomial_test.use_n_carrier_per_category:
+        assert list(binomial_test.case_variant_cnt) == [13, 10]
 
 
 def test_ctrl_variant_cnt(binomial_test):
     binomial_test._adjust_categorization_result()
-    assert list(binomial_test.ctrl_variant_cnt) == [19, 24]
+    if not binomial_test.use_n_carrier_per_category:
+        assert list(binomial_test.ctrl_variant_cnt) == [19, 14]
+
+
+def test_case_carrier_cnt(binomial_test):
+    binomial_test._adjust_categorization_result()
+    if binomial_test.use_n_carrier_per_category:
+        assert list(binomial_test.case_carrier_cnt) == [2, 2]
+
+
+def test_ctrl_carrier_cnt(binomial_test):
+    binomial_test._adjust_categorization_result()
+    if binomial_test.use_n_carrier_per_category:
+        assert list(binomial_test.ctrl_carrier_cnt) == [4, 2]
 
 
 def test_calculate_relative_risk(binomial_test):
     binomial_test._adjust_categorization_result()
     binomial_test.run()
-    expected_relative_risk1 = (13 / 2) / (19 / 4)  # A_B_C_D_E
-    expected_relative_risk2 = (10 / 2) / (24 / 4)  # a_b_c_d_e
+    if binomial_test.use_n_carrier_per_category:
+        expected_relative_risk1 = (2 / 2) / (4 / 4)  # A_B_C_D_E
+        expected_relative_risk2 = (2 / 2) / (2 / 4)  # a_b_c_d_e
+    else:
+        expected_relative_risk1 = (13 / 2) / (19 / 4)  # A_B_C_D_E
+        expected_relative_risk2 = (10 / 2) / (14 / 4)  # a_b_c_d_e
     assert binomial_test._result["Relative_Risk"].to_list() == [
         expected_relative_risk1,
         expected_relative_risk2,
