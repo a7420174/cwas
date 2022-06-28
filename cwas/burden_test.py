@@ -50,8 +50,8 @@ class BurdenTest(Runnable):
         )
         parser.add_argument(
             "-n",
-            "--n_carrier_per_category",
-            dest="use_n_carrier_per_category",
+            "--n_carrier",
+            dest="use_n_carrier",
             required=False,
             default=False,
             action="store_true",
@@ -63,7 +63,7 @@ class BurdenTest(Runnable):
     def _print_args(args: argparse.Namespace):
         print_arg("Sample information file", args.sample_info_path)
         print_arg("Adjustment factor list", args.adj_factor_path)
-        print_arg("If the number of carriers is used for burden test or not", args.use_n_carrier_per_category)
+        print_arg("If the number of carriers is used for burden test or not", args.use_n_carrier)
 
     @staticmethod
     def _check_args_validity(args: argparse.Namespace):
@@ -198,7 +198,7 @@ class BurdenTest(Runnable):
                 "not the same with the sample IDs "
                 "from the categorization result."
             )
-        if self.use_n_carrier_per_category:
+        if self.use_n_carrier:
             self.count_carrier_for_each_category()
             self.calculate_relative_risk_with_n_carrier()
         else:

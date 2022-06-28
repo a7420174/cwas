@@ -10,7 +10,7 @@ class FisherExactTest(BurdenTest):
     def run_burden_test(self):
         print_progress("Run Fisher's exact test")
         
-        if not self.use_n_carrier_per_category:
+        if not self.use_n_carrier:
             raise RuntimeError(
                 "This method is only for '-n' option."
             )
