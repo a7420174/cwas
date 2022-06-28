@@ -9,7 +9,7 @@ from cwas.utils.log import print_progress
 class BinomialTest(BurdenTest):
     @property
     def binom_p(self) -> float:
-        return (self.phenotypes == "case").sum() / len(self.phenotypes)
+        return (self.phenotypes == "case").sum() / np.isin(self.phenotypes, ["case", "ctrl"]).sum()
 
     def run_burden_test(self):
         print_progress("Run binomial test")
