@@ -12,7 +12,7 @@ class FisherExactTest(BurdenTest):
         
         if not self.use_n_carrier:
             raise RuntimeError(
-                "This method is only for '-n' option."
+                "This method is only for '-u' option."
             )
         
         self._result["OR"], self._result["P"] = np.vectorize(fisher_two_tail)(
