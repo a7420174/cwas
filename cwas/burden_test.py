@@ -32,6 +32,14 @@ class BurdenTest(Runnable):
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
         parser.add_argument(
+            "-c",
+            "--categorization_result",
+            dest="categorization_result_path",
+            required=False,
+            type=Path,
+            help="The path of the category result file",
+        )
+        parser.add_argument(
             "-s",
             "--sample_info",
             dest="sample_info_path",
@@ -49,8 +57,8 @@ class BurdenTest(Runnable):
             help="File listing adjustment factors of each sample",
         )
         parser.add_argument(
-            "-n",
-            "--n_carrier",
+            "-u",
+            "--use_n_carrier",
             dest="use_n_carrier",
             required=False,
             default=False,
@@ -61,6 +69,11 @@ class BurdenTest(Runnable):
 
     @staticmethod
     def _print_args(args: argparse.Namespace):
+        print_arg(
+            "Category result file", 
+            args.categorization_result_path
+                if args.categorization_result_path
+                else "Not specified: $CATEGORIZATION_RESULT will be used")
         print_arg("Sample information file", args.sample_info_path)
         print_arg("Adjustment factor list", args.adj_factor_path)
         print_arg("If the number of carriers is used for burden test or not", args.use_n_carrier)
