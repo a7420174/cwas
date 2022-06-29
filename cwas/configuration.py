@@ -14,6 +14,7 @@ class Configuration(Runnable):
         self.workspace = self._get_workspace()
         self.user_config = self.workspace / "configuration.txt"
         self.data_dir_symlink = self.workspace / "annotation-data"
+        self.sim_data_dir_symlink = self.workspace / "simulation-data"
         self.gene_matrix_symlink = self.workspace / "gene_matrix.txt"
         self.bed_key_list = self.workspace / "annotation_key_bed.yaml"
         self.bw_key_list = self.workspace / "annotation_key_bw.yaml"
@@ -22,6 +23,7 @@ class Configuration(Runnable):
         self.redundant_category_table = (
             self.workspace / "redundant_category.txt"
         )
+        self.sim_filepaths_symlink = self.workspace / "simulation_filepaths.yaml"
 
     def _get_workspace(self):
         workspace = self.get_env("CWAS_WORKSPACE")
@@ -47,6 +49,14 @@ class Configuration(Runnable):
             required=False,
             type=Path,
             help="Path to your annotation data directory",
+        )
+        parser.add_argument(
+            "-s",
+            "--simulation_data_dir",
+            dest="sim_data_dir",
+            required=False,
+            type=Path,
+            help="Path to your simulation data directory",
         )
         parser.add_argument(
             "-m",
@@ -84,22 +94,35 @@ class Configuration(Runnable):
             type=Path,
             help="Path to Variant Effect Predictor (VEP)",
         )
+        parser.add_argument(
+            "-p",
+            "--sim_filepaths",
+            dest="sim_filepaths",
+            required=False,
+            type=Path,
+            help="Path to a configuration file (.yaml) that "
+            "specifies the paths of files used for simulation",
+        )
         return parser
 
     def run(self):
         self._set_config_to_attr()
         self._check_attr_from_user_config()
         self._create_data_dir_symlink()
+        self._create_sim_data_dir_symlink()
         self._create_gene_matrix_symlink()
         self._create_annotation_key_list()
         self._create_bw_cutoff_list()
         self._create_category_info()
+        self._create_sim_filepaths_symlink()
         self._set_env()
 
     def _set_config_to_attr(self):
         user_config = self._load_configuration()
         self.data_dir = Path(user_config.get("ANNOTATION_DATA_DIR"))
+        self.sim_data_dir = Path(user_config.get("SIMULATION_DATA_DIR"))
         self.gene_matrix = Path(user_config.get("GENE_MATRIX"))
+        self.sim_filepaths = Path(user_config.get("SIMULATION_PATHS"))
         self.vep = Path(user_config.get("VEP"))
 
         annot_key_conf = user_config.get("ANNOTATION_KEY_CONFIG")
@@ -143,6 +166,21 @@ class Configuration(Runnable):
     def _create_data_dir_symlink(self):
         data_dir = getattr(self, "data_dir")
         data_dir_symlink = getattr(self, "data_dir_symlink")
+        log.print_progress(
+            f"Create a symlink to your annotation data "
+            f'directory "{data_dir_symlink}"'
+        )
+        try:
+            data_dir_symlink.symlink_to(data_dir, target_is_directory=True)
+        except FileExistsError:
+            log.print_warn(
+                f'"{data_dir_symlink}" already exists so skip '
+                f"creating the symbolic link"
+            )
+
+    def _create_sim_data_dir_symlink(self):
+        data_dir = getattr(self, "sim_data_dir")
+        data_dir_symlink = getattr(self, "sim_data_dir_symlink")
         log.print_progress(
             f"Create a symlink to your annotation data "
             f'directory "{data_dir_symlink}"'
@@ -217,14 +255,32 @@ class Configuration(Runnable):
         )
         create.create_redundant_category_table(redundant_category_table)
 
+    def _create_sim_filepaths_symlink(self):
+        sim_filepaths = getattr(self, "sim_filepaths")
+        sim_filepaths_symlink = getattr(self, "sim_filepaths_symlink")
+
+        log.print_progress(
+            f"Create a symlink to your gene matrix " f'"{sim_filepaths_symlink}"'
+        )
+
+        try:
+            sim_filepaths_symlink.symlink_to(sim_filepaths)
+        except FileExistsError:
+            log.print_warn(
+                f'"{sim_filepaths_symlink}" already exists so skip '
+                f"creating the symbolic link"
+            )
+        
     def _set_env(self):
         log.print_progress("Set CWAS environment variables")
         self.set_env("VEP", getattr(self, "vep"))
         self.set_env("ANNOTATION_DATA", self.data_dir_symlink)
+        self.set_env("SIMULATION_DATA", self.sim_data_dir_symlink)
         self.set_env("GENE_MATRIX", self.gene_matrix_symlink)
         self.set_env("ANNOTATION_BED_KEY", self.bed_key_list)
         self.set_env("ANNOTATION_BW_KEY", self.bw_key_list)
         self.set_env("ANNOTATION_BW_CUTOFF", self.bw_cutoff_list)
         self.set_env("CATEGORY_DOMAIN", self.category_domain_list)
         self.set_env("REDUNDANT_CATEGORY", self.redundant_category_table)
+        self.set_env("SIMULATION_PATHS", self.sim_filepaths_symlink)
         self.save_env()

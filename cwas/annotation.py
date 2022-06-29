@@ -21,6 +21,7 @@ from cwas.utils.log import print_arg, print_log, print_progress
 class Annotation(Runnable):
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
+        self._vep_output_vcf_path = None
 
     @staticmethod
     def _create_arg_parser() -> argparse.ArgumentParser:
@@ -69,10 +70,16 @@ class Annotation(Runnable):
 
     @property
     def vep_output_vcf_path(self):
-        return (
-            f"{self.get_env('CWAS_WORKSPACE')}/"
-            f"{self.vcf_path.name.replace('.vcf', '.vep.vcf').replace('.bgz', '').replace('.gz', '')}" # A compressed VCF is compatible with VEP
-        )
+        if self._vep_output_vcf_path is None:
+            self._vep_output_vcf_path = (
+                f"{self.get_env('CWAS_WORKSPACE')}/"
+                f"{self.vcf_path.name.replace('.vcf', '.vep.vcf').replace('.bgz', '').replace('.gz', '')}" # A compressed VCF is compatible with VEP
+            )
+        return self._vep_output_vcf_path
+        
+    @vep_output_vcf_path.setter
+    def vep_output_vcf_path(self, path: str):
+        self._vep_output_vcf_path = path
 
     @property
     def vep_output_vcf_gz_path(self):
@@ -81,9 +88,12 @@ class Annotation(Runnable):
     @property
     def annotated_vcf_path(self):
         return (
-            f"{self.get_env('CWAS_WORKSPACE')}/"
-            f"{self.vcf_path.name.replace('.vcf', '.annotated.vcf').replace('.bgz', '').replace('.gz', '')}"
+            f"{self.vep_output_vcf_path.replace('.vep.vcf', '.annotated.vcf')}"
         )
+
+    @annotated_vcf_path.setter
+    def annotated_vcf_path(self, path: str):
+        self._annotated_vcf_path = path
 
     @property
     def bw_custom_annotations(self):

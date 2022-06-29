@@ -23,6 +23,7 @@ class Categorization(Runnable):
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
         self._annotated_vcf = None
+        self._result_path = None
         self._gene_matrix = None
         self._category_domain = None
         self._annotation_bw_cutoff = None
@@ -59,11 +60,17 @@ class Categorization(Runnable):
 
     @property
     def result_path(self) -> Path:
-        return Path(
-            self.get_env("ANNOTATED_VCF").replace(
-                "annotated.vcf", "categorization_result.txt"
+        if self._result_path is None:
+            self._result_path = Path(
+                self.get_env("ANNOTATED_VCF").replace(
+                    "annotated.vcf", "categorization_result.txt"
+                )
             )
-        )
+        return self._result_path
+        
+    @result_path.setter
+    def result_path(self, path: Path):
+        self._result_path = path
 
     @property
     def annotated_vcf(self) -> pd.DataFrame:
@@ -73,6 +80,10 @@ class Categorization(Runnable):
                 Path(self.get_env("ANNOTATED_VCF"))
             )
         return self._annotated_vcf
+
+    @annotated_vcf.setter
+    def annotated_vcf(self, annotated_vcf: pd.DataFrame):
+        self._annotated_vcf = annotated_vcf
 
     @property
     def gene_matrix(self) -> dict:

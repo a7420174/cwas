@@ -74,10 +74,12 @@ class Start(Runnable):
     def _init_config(self) -> dict:
         config = {
             "ANNOTATION_DATA_DIR": "",
+            "SIMULATION_DATA_DIR": "",
             "GENE_MATRIX": "",
             "ANNOTATION_KEY_CONFIG": "",
             "BIGWIG_CUTOFF_CONFIG": "",
             "VEP": "",
+            "SIMULATION_PATHS": "",
         }
 
         installed_vep = self._find_vep_path()

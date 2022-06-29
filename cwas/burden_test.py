@@ -19,6 +19,7 @@ class BurdenTest(Runnable):
         self._adj_factor = None
         self._categorization_result = None
         self._result = None
+        self._result_path = None
         self._phenotypes = None
         self._case_variant_cnt = None
         self._ctrl_variant_cnt = None
@@ -85,14 +86,6 @@ class BurdenTest(Runnable):
             check_is_file(args.adj_factor_path)
 
     @property
-    def result_path(self) -> Path:
-        return Path(
-            self.get_env("ANNOTATED_VCF").replace(
-                "annotated.vcf", "burden_test.txt"
-            )
-        )
-
-    @property
     def sample_info(self) -> pd.DataFrame:
         if self._sample_info is None:
             self._sample_info = pd.read_table(
@@ -115,7 +108,9 @@ class BurdenTest(Runnable):
         if self._categorization_result is None:
             print_progress("Load the categorization result")
             self._categorization_result = pd.read_table(
-                self.get_env("CATEGORIZATION_RESULT"), index_col="SAMPLE"
+                self.categorization_result_path 
+                    if self.categorization_result_path 
+                    else self.get_env("CATEGORIZATION_RESULT"), index_col="SAMPLE"
             )
             if self.adj_factor is not None:
                 self._adjust_categorization_result()
@@ -141,6 +136,20 @@ class BurdenTest(Runnable):
     @staticmethod
     def _contain_same_index(table1: pd.DataFrame, table2: pd.DataFrame) -> bool:
         return cmp_two_arr(table1.index.values, table2.index.values)
+
+    @property
+    def result_path(self) -> Path:
+        if self._result_path is None:
+            self._result_path = Path(
+                self.get_env("CATEGORIZATION_RESULT").replace(
+                    '.categorization_result.txt', '.burden_test.txt'
+                )
+            )
+        return self._result_path
+        
+    @result_path.setter
+    def result_path(self, path: Path):
+        self._result_path = path
 
     @property
     def phenotypes(self) -> np.ndarray:
