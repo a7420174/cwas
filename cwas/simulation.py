@@ -17,6 +17,7 @@ from cwas.runnable import Runnable
 from cwas.annotation import Annotation
 from cwas.categorization import Categorization
 from cwas.binomial_test import BinomialTest
+from typing import Optional
 
 
 
@@ -92,6 +93,45 @@ class Simulation(Runnable):
         check_is_file(args.sample_info_path)
         check_num_proc(args.num_proc)
 
+    @property
+    def in_vcf_path(self) -> Optional[Path]:
+        return self.args.vcf_path.resolve()
+    
+    @property
+    def sample_info_path(self) -> Path:
+        return self.args.sample_info_path.resolve()
+    
+    @property
+    def out_dir(self) -> Path:
+        return (
+            self.args.out_dir.resolve()
+            if self.args.out_dir
+            else Path(self.get_env("CWAS_WORKSPACE")) / "random-mutations"
+        )
+
+    @property
+    def out_tag(self) -> str:
+        return self.args.out_tag
+
+    @property
+    def num_sim(self) -> int:
+        return self.args.num_sim
+
+    @property
+    def num_proc(self) -> int:
+        return self.args.num_proc
+
+    @property
+    def adj_factor_path(self) -> Optional[Path]:
+        return (
+            self.args.adj_factor_path.resolve()
+            if self.args.adj_factor_path
+            else None
+        )
+
+    @property
+    def use_n_carrier(self) -> bool:
+        return self.args.use_n_carrier
 
     @property
     def in_vcf(self) -> pd.DataFrame:
@@ -269,9 +309,6 @@ class Simulation(Runnable):
     def prepare(self):
         if not cmp_two_arr(self.sample_info.index, self.in_vcf['SAMPLE'].unique()):
             log.print_warn("The sample IDs in the sample info file and the VCF file are not the same.")
-
-        if self.out_dir is None:
-            self.out_dir = Path(self.get_env("CWAS_WORKSPACE")) / "random-mutations"
 
         log.print_progress("Make an output directory")
         self.out_dir.mkdir(parents=True, exist_ok=True)

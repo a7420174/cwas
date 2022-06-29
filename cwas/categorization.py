@@ -59,6 +59,10 @@ class Categorization(Runnable):
         check_num_proc(args.num_proc)
 
     @property
+    def num_proc(self):
+        return self.args.num_proc
+
+    @property
     def result_path(self) -> Path:
         if self._result_path is None:
             self._result_path = Path(

@@ -1,6 +1,7 @@
 import argparse
 from abc import abstractmethod
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ from cwas.utils.log import print_arg, print_progress
 
 
 class BurdenTest(Runnable):
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: Optional[argparse.Namespace] = None):
         super().__init__(args)
         self._sample_info = None
         self._adj_factor = None
@@ -86,6 +87,30 @@ class BurdenTest(Runnable):
             check_is_file(args.adj_factor_path)
 
     @property
+    def categorization_result_path(self) -> Path:
+        return (
+            self.args.categorization_result_path.resolve()
+            if self.args.categorization_result_path 
+            else self.get_env("CATEGORIZATION_RESULT")
+        )
+
+    @property
+    def sample_info_path(self) -> Path:
+        return self.args.sample_info_path.resolve()
+
+    @property
+    def adj_factor_path(self) -> Optional[Path]:
+        return (
+            self.args.adj_factor_path.resolve()
+            if self.args.adj_factor_path
+            else None
+        )
+
+    @property
+    def use_n_carrier(self) -> bool:
+        return self.args.use_n_carrier
+
+    @property
     def sample_info(self) -> pd.DataFrame:
         if self._sample_info is None:
             self._sample_info = pd.read_table(
@@ -95,9 +120,7 @@ class BurdenTest(Runnable):
 
     @property
     def adj_factor(self) -> pd.DataFrame:
-        if self.adj_factor_path is None:
-            return None
-        if self._adj_factor is None:
+        if self._adj_factor is None and self.adj_factor_path:
             self._adj_factor = pd.read_table(
                 self.adj_factor_path, index_col="SAMPLE"
             )
@@ -108,9 +131,7 @@ class BurdenTest(Runnable):
         if self._categorization_result is None:
             print_progress("Load the categorization result")
             self._categorization_result = pd.read_table(
-                self.categorization_result_path 
-                    if self.categorization_result_path 
-                    else self.get_env("CATEGORIZATION_RESULT"), index_col="SAMPLE"
+                self.categorization_result_path, index_col="SAMPLE"
             )
             if self.adj_factor is not None:
                 self._adjust_categorization_result()
@@ -146,7 +167,7 @@ class BurdenTest(Runnable):
                 )
             )
         return self._result_path
-        
+
     @result_path.setter
     def result_path(self, path: Path):
         self._result_path = path
