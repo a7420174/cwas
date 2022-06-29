@@ -1,7 +1,5 @@
 import pandas as pd
-import numpy as np
 import pytest
-
 from cwas.fisher_exact_test import FisherExactTest
 
 
@@ -13,32 +11,6 @@ class FisherExactTestMock(FisherExactTest):
 
     def update_env(self):
         pass
-
-
-@pytest.fixture(scope="module")
-def sample_info_path(cwas_workspace):
-    return cwas_workspace / "samples.txt"
-
-
-@pytest.fixture(scope="module")
-def adj_factor_path(cwas_workspace):
-    return cwas_workspace / "adj_factors.txt"
-
-
-@pytest.fixture(scope="module")
-def args(sample_info_path, adj_factor_path):
-    return ["-s", str(sample_info_path), "-a", str(adj_factor_path), "-n"]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_and_teardown(cwas_workspace, sample_info_path, adj_factor_path):
-    cwas_workspace.mkdir()
-    sample_info_path.touch()
-    adj_factor_path.touch()
-    yield
-    sample_info_path.unlink()
-    adj_factor_path.unlink()
-    cwas_workspace.rmdir()
 
 
 @pytest.fixture
@@ -103,7 +75,7 @@ def fisher_exact_test(
     args, categorization_result, sample_info, adjustment_factor,
 ):
     # This is not an appropriate usage.
-    inst = FisherExactTestMock.get_instance(args)
+    inst = FisherExactTestMock()
     inst._categorization_result = categorization_result
     inst._sample_info = sample_info
     inst._adj_factor = adjustment_factor
@@ -112,13 +84,12 @@ def fisher_exact_test(
 
 @pytest.fixture
 def fisher_exact_test_with_inconsistent_sample(
-    args,
     categorization_result,
     sample_info_other_sample,
     adjustment_factor_other_sample,
 ):
     # This is not an appropriate usage.
-    inst = FisherExactTestMock.get_instance(args)
+    inst = FisherExactTestMock()
     inst._categorization_result = categorization_result
     inst._sample_info = sample_info_other_sample
     inst._adj_factor = adjustment_factor_other_sample
@@ -195,12 +166,8 @@ def test_ctrl_carrier_cnt(fisher_exact_test):
 def test_calculate_relative_risk(fisher_exact_test):
     fisher_exact_test._adjust_categorization_result()
     fisher_exact_test.run()
-    if fisher_exact_test.use_n_carrier_per_category:
-        expected_relative_risk1 = (2 / 2) / (4 / 4)  # A_B_C_D_E
-        expected_relative_risk2 = (2 / 2) / (2 / 4)  # a_b_c_d_e
-    else:
-        expected_relative_risk1 = (13 / 2) / (19 / 4)  # A_B_C_D_E
-        expected_relative_risk2 = (10 / 2) / (14 / 4)  # a_b_c_d_e
+    expected_relative_risk1 = (2 / 2) / (4 / 4)  # A_B_C_D_E
+    expected_relative_risk2 = (2 / 2) / (2 / 4)  # a_b_c_d_e
     assert fisher_exact_test._result["Relative_Risk"].to_list() == [
         expected_relative_risk1,
         expected_relative_risk2,
