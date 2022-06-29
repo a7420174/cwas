@@ -109,7 +109,7 @@ class BurdenTest(Runnable):
         return self._categorization_result
 
     def _adjust_categorization_result(self):
-        if not _contain_same_index(
+        if not self._contain_same_index(
             self._categorization_result, self.adj_factor
         ):
             raise ValueError(
@@ -124,6 +124,10 @@ class BurdenTest(Runnable):
         self._categorization_result = self._categorization_result.multiply(
             adj_factors, axis="index"
         )
+
+    @staticmethod
+    def _contain_same_index(table1: pd.DataFrame, table2: pd.DataFrame) -> bool:
+        return cmp_two_arr(table1.index.values, table2.index.values)
 
     @property
     def phenotypes(self) -> np.ndarray:
@@ -190,7 +194,7 @@ class BurdenTest(Runnable):
         )
 
     def run(self):
-        if not _contain_same_index(
+        if not self._contain_same_index(
             self.categorization_result, self.sample_info
         ):
             raise ValueError(
@@ -273,7 +277,3 @@ class BurdenTest(Runnable):
     def update_env(self):
         self.set_env("BURDEN_TEST_RESULT", self.result_path)
         self.save_env()
-
-
-def _contain_same_index(table1: pd.DataFrame, table2: pd.DataFrame) -> bool:
-    return cmp_two_arr(table1.index.values, table2.index.values)
