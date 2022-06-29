@@ -62,8 +62,6 @@ class BurdenTest(Runnable):
             "-u",
             "--use_n_carrier",
             dest="use_n_carrier",
-            required=False,
-            default=False,
             action="store_true",
             help="Use the number of samples with variants in each category for burden test instead of the number of variants",
         )
