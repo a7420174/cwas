@@ -138,11 +138,8 @@ def _set_invalid_file_path(cwas_config, invalid_file_path):
     cwas_config[random_file_key] = invalid_file_path
 
 
-def _set_invalid_dir_path(cwas_config, invalid_dir_path):
-    random_dir_key = random.choice(
-        ["ANNOTATION_DATA_DIR", "SIMULATION_DATA_DIR"]
-    )
-    cwas_config[random_dir_key] = invalid_dir_path
+def _set_invalid_dir_path(cwas_config, invalid_file_path):
+    cwas_config["ANNOTATION_DATA_DIR"] = invalid_file_path
 
 
 def _set_invalid_vep_path(cwas_config, invalid_vep_path):
