@@ -48,6 +48,8 @@ def test_config_keys(cwas_workspace: Path):
         "ANNOTATION_KEY_CONFIG",
         "BIGWIG_CUTOFF_CONFIG",
         "VEP",
+        "SIMULATION_PATHS",
+        "SIMULATION_DATA_DIR",
     }
     assert config_key_set == expected_key_set
 

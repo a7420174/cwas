@@ -6,6 +6,10 @@ from cwas.binomial_test import BinomialTest
 class BinomialTestMock(BinomialTest):
     """This class do not make outputs"""
 
+    @property
+    def use_n_carrier(self):
+        return True
+
     def save_result(self):
         pass
 

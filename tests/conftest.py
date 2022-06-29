@@ -43,6 +43,12 @@ def annotation_dir(cwas_input_dir):
 
 
 @pytest.fixture(scope="package")
+def sim_dir(cwas_input_dir):
+    _sim_dir = cwas_input_dir / "simulation-data"
+    return _sim_dir
+
+
+@pytest.fixture(scope="package")
 def annotation_key_conf(cwas_input_dir):
     _annotation_key_conf = cwas_input_dir / "annotation_key.yaml"
     return _annotation_key_conf
@@ -60,14 +66,21 @@ def gene_matrix(cwas_input_dir):
     return _gene_matrix
 
 
+@pytest.fixture(scope="package")
+def sim_filepaths(cwas_input_dir):
+    _sim_filepaths = cwas_input_dir / "simulation_filepaths.yaml"
+    return _sim_filepaths
+
+
 @pytest.fixture(scope="package", autouse=True)
 def create_cwas_input_dir(
-    cwas_input_dir, gene_matrix, annotation_key_conf, bw_cutoff_conf
+    cwas_input_dir, gene_matrix, annotation_key_conf, bw_cutoff_conf, sim_filepaths
 ):
     cwas_input_dir.mkdir()
     create_gene_matrix(gene_matrix)
     create_annotation_key_conf(annotation_key_conf)
     create_bw_cutoff_conf(bw_cutoff_conf)
+    create_sim_filepaths(sim_filepaths)
     print("[TEST] Temporary CWAS input directory has created.")
     yield
     for f in cwas_input_dir.glob("*"):
@@ -93,6 +106,28 @@ def create_annotation_dir(create_cwas_input_dir, annotation_dir):
     for f in annotation_dir.glob("*"):
         f.unlink()
     annotation_dir.rmdir()
+
+
+@pytest.fixture(scope="package", autouse=True)
+def create_sim_dir(create_cwas_input_dir, sim_dir):
+    (sim_dir / "chrom").mkdir(parents=True)
+    sim_filepaths = [
+        sim_dir / "chrom" / "chr1_masked.fa",
+        sim_dir / "chrom" / "chr1_masked.fa.fai",
+        sim_dir / "chrom" / "chr2_masked.fa",
+        sim_dir / "chrom" / "chr2_masked.fa.fai",
+        sim_dir / "chrom" / "chr3_masked.fa",
+        sim_dir / "chrom" / "chr3_masked.fa.fai",
+    ]
+    for sim_filepath in sim_filepaths:
+        sim_filepath.touch()
+    yield
+    for f in (sim_dir / "chrom").glob("*"):
+        f.unlink()
+    (sim_dir / "chrom").rmdir()
+    for f in sim_dir.glob("*"):
+        f.unlink()
+    sim_dir.rmdir()
 
 
 def create_gene_matrix(gene_matrix):
@@ -130,3 +165,13 @@ def create_bw_cutoff_conf(bw_cutoff_conf):
     }
     with bw_cutoff_conf.open("w") as out_f:
         yaml.safe_dump(bw_cutoff_dict, out_f)
+
+
+def create_sim_filepaths(sim_filepaths):
+    sim_path_dict = {
+        "chr1": "chrom/chr1_masked.fa",
+        "chr2": "chrom/chr2_masked.fa",
+        "chr3": "chrom/chr3_masked.fa",
+    }
+    with sim_filepaths.open("w") as out_f:
+        yaml.safe_dump(sim_path_dict, out_f)

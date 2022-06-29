@@ -6,6 +6,10 @@ from cwas.fisher_exact_test import FisherExactTest
 class FisherExactTestMock(FisherExactTest):
     """This class do not make outputs"""
 
+    @property
+    def use_n_carrier(self):
+        return True
+
     def save_result(self):
         pass
 
@@ -72,7 +76,7 @@ def adjustment_factor_other_sample():
 
 @pytest.fixture
 def fisher_exact_test(
-    args, categorization_result, sample_info, adjustment_factor,
+    categorization_result, sample_info, adjustment_factor,
 ):
     # This is not an appropriate usage.
     inst = FisherExactTestMock()
