@@ -9,7 +9,7 @@ from cwas.core.categorization.parser import (
     parse_annotated_vcf,
 )
 from cwas.core.common import cmp_two_arr
-from cwas.utils.check import check_is_file, check_num_proc, check_positive
+from cwas.utils.check import check_is_file, check_num_proc
 from cwas.core.simulation.fastafile import FastaFile
 from cwas.core.simulation.randomize import label_variant, pick_mutation
 from scipy.stats import binom_test, norm
@@ -41,11 +41,12 @@ class Simulation(Runnable):
     @staticmethod
     def _create_arg_parser() -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
-            description="Arguments of CWAS categorization step",
+            description="Arguments of CWAS simulation step",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
         parser.add_argument('-i', '--in_vcf', dest='in_vcf_path', required=False, type=Path,
-                            help='Input VCF file which is referred to generate random mutations')
+                            help='Input VCF file which is referred to generate random mutations '
+                                 '(Default: $ANNOTATED_VCF)')
         parser.add_argument('-s', '--sample_info', dest='sample_info_path', required=True, type=Path,
                             help='File listing sample IDs with their families and sample_types (case or ctrl)')
         parser.add_argument('-o', '--out_dir', dest='out_dir', required=False, type=Path,
@@ -94,8 +95,12 @@ class Simulation(Runnable):
         check_num_proc(args.num_proc)
 
     @property
-    def in_vcf_path(self) -> Optional[Path]:
-        return self.args.vcf_path.resolve()
+    def in_vcf_path(self) -> Path:
+        return (
+            self.args.in_vcf_path.resolve()
+            if self.args.out_dir
+            else Path(self.get_env("ANNOTATED_VCF"))
+        )
     
     @property
     def sample_info_path(self) -> Path:
@@ -457,8 +462,8 @@ class Simulation(Runnable):
         annotator.annotate_using_bigwig()
         annotator.process_vep_vcf()
         annotator.annotate_using_bed()
-        os.remove(annotator.vep_output_vcf_gz_path)
-        os.remove(annotator.vep_output_vcf_gz_path + '.tbi')
+        # os.remove(annotator.vep_output_vcf_gz_path)
+        # os.remove(annotator.vep_output_vcf_gz_path + '.tbi')
         return Path(annotator.annotated_vcf_path)
     
     
