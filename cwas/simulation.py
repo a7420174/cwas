@@ -98,7 +98,7 @@ class Simulation(Runnable):
     def in_vcf_path(self) -> Path:
         return (
             self.args.in_vcf_path.resolve()
-            if self.args.out_dir
+            if self.args.in_vcf_path
             else Path(self.get_env("ANNOTATED_VCF"))
         )
     
@@ -322,8 +322,8 @@ class Simulation(Runnable):
         """ Make VCF files listing random mutations"""
         log.print_progress(self.make_rand_mut_files.__doc__)
         
-        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.vcf.gz'))) > 0:
-            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.vcf.gz'))) == self.num_sim:
+        if len(sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.vcf.gz'))) > 0:
+            if len(sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.vcf.gz'))) == self.num_sim:
                 log.print_log(
                     "NOTICE",
                     "You already have random mutation vcfs. Skip this step.",
