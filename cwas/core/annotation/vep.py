@@ -69,6 +69,8 @@ class VepCmdGenerator:
         result += self.cmd_option_basic
         result += self.cmd_option_pick_one_gene_isoform
         result += self.cmd_option_pick_nearest_gene
+        result += self.cmd_option_loftee
+        result += self.cmd_option_revel
         result += self.cmd_option_bw_custom_annotations
         result += self.cmd_option_fork
         return result
@@ -104,6 +106,28 @@ class VepCmdGenerator:
     def cmd_option_pick_nearest_gene(self) -> list:
         """Return options in order to pick the nearest gene"""
         return ["--distance", "2000", "--nearest", "symbol", "--symbol"]
+
+    @property
+    def cmd_option_loftee(self) -> list:
+        """Return options in order to use loftee"""
+        return [
+            "--plugin",
+            ",".join(
+                ["LoF",
+                 "loftee_path:/home/a7420174/.vep/Plugins",
+                 "human_ancestor_fa:/home/a7420174/.vep/resources/human_ancestor.fa.gz",
+                 "gerp_bigwig:/home/a7420174/.vep/resources/gerp_conservation_scores.homo_sapiens.GRCh38.bw",
+                 "conservation_file:/home/a7420174/.vep/resources/loftee.sql"]
+            )
+        ]
+
+    @property
+    def cmd_option_revel(self) -> list:
+        """Return options in order to use REVEL"""
+        return [
+                "--custom",
+                ",".join(["/home/a7420174/.vep/resources/revel.vcf.bgz", "revel", 'vcf', "exact", "0", "REVEL"]),
+            ]
 
     @property
     def cmd_option_bw_custom_annotations(self) -> list:
