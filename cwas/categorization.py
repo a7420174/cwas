@@ -67,7 +67,7 @@ class Categorization(Runnable):
         if self._result_path is None:
             self._result_path = Path(
                 self.get_env("ANNOTATED_VCF").replace(
-                    "annotated.vcf", "categorization_result.txt"
+                    "annotated.vcf", "categorization_result.txt.gz"
                 )
             )
         return self._result_path
