@@ -261,7 +261,7 @@ class Simulation(Runnable):
     @property
     def burden_test_paths(self) -> list:
         if self._burden_test_paths is None:
-            self._burden_test_paths = sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt'))
+            self._burden_test_paths = sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt.gz'))
         return self._burden_test_paths
     
     
@@ -471,8 +471,8 @@ class Simulation(Runnable):
         """ Categorize random mutations """
         log.print_progress(self.categorize.__doc__)
         
-        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.categorization_result.txt'))) > 0:
-            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.categorization_result.txt'))) == self.num_sim:
+        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.categorization_result.txt.gz'))) > 0:
+            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.categorization_result.txt.gz'))) == self.num_sim:
                 log.print_log(
                     "NOTICE",
                     "You already have categorization results. Skip this step.",
@@ -506,7 +506,7 @@ class Simulation(Runnable):
     def _categorize_one(annot_vcf_path: Path) -> Path:
         categorizer = Categorization.get_instance()
         categorizer.annotated_vcf = parse_annotated_vcf(annot_vcf_path)
-        categorizer.result_path = Path(str(annot_vcf_path).replace('.annotated.vcf', '.categorization_result.txt'))
+        categorizer.result_path = Path(str(annot_vcf_path).replace('.annotated.vcf', '.categorization_result.txt.gz'))
         categorizer.categorize_vcf()
         categorizer.remove_redundant_category()
         categorizer.save_result()
@@ -517,8 +517,8 @@ class Simulation(Runnable):
         """ Burden tests for random mutations """
         log.print_progress(self.burden_tests.__doc__)
         
-        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt'))) > 0:
-            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt'))) == self.num_sim:
+        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt.gz'))) > 0:
+            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt.gz'))) == self.num_sim:
                 log.print_log(
                     "NOTICE",
                     "You already have burden test results. Skip this step.",
@@ -560,7 +560,7 @@ class Simulation(Runnable):
         if use_n_carrier:
             argv.append('-u')
         tester = BinomialTest.get_instance(argv=argv)
-        tester.result_path = Path(str(cat_result_path).replace('.categorization_result.txt', '.burden_test.txt'))
+        tester.result_path = Path(str(cat_result_path).replace('.categorization_result.txt', '.burden_test.txt.gz'))
         
         if tester.use_n_carrier:
             tester.count_carrier_for_each_category()
