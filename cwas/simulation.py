@@ -611,7 +611,7 @@ class Simulation(Runnable):
             z_dicts = []
             for burden_test_path in self.burden_test_paths:
                 z_dict = _get_zscore_dict_partial(burden_test_path)
-                z_dicts = z_dicts.append(z_dict)
+                z_dicts.append(z_dict)
         else:
             with mp.Pool(self.num_proc) as pool:
                 z_dicts = pool.map(
