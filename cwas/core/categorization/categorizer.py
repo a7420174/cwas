@@ -430,13 +430,9 @@ class Categorizer:
                         2 ** gencode_annotation_idx["IntergenicRegion"]
                     )
                 elif "ProteinCoding" not in gene_list_set:
-                    if "Antisense" in gene_list_set:
+                    if "LongncRNA" in gene_list_set:
                         annotation_int += (
-                            2 ** gencode_annotation_idx["AntisenseRegion"]
-                        )
-                    elif "lincRNA" in gene_list_set:
-                        annotation_int += (
-                            2 ** gencode_annotation_idx["lincRnaRegion"]
+                            2 ** gencode_annotation_idx["LongncRnaRegion"]
                         )
                     else:
                         annotation_int += (
