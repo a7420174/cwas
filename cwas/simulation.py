@@ -555,12 +555,14 @@ class Simulation(Runnable):
         self._burden_test_paths = burden_test_paths
 
     @staticmethod
-    def _burden_test(cat_result_path: Path, sample_info_path: Path, adj_factor_path: Path, use_n_carrier: bool) -> Path:
-        argv = ['-c', str(cat_result_path), '-s', str(sample_info_path), '-a', str(adj_factor_path)]
+    def _burden_test(cat_result_path: Path, sample_info_path: Path, adj_factor_path: Optional[Path], use_n_carrier: bool) -> Path:
+        argv = ['-c', str(cat_result_path), '-s', str(sample_info_path)]
+        if adj_factor_path is not None:
+            argv.extend(['-a', str(adj_factor_path)])
         if use_n_carrier:
             argv.append('-u')
         tester = BinomialTest.get_instance(argv=argv)
-        tester.result_path = Path(str(cat_result_path).replace('.categorization_result.txt', '.burden_test.txt.gz'))
+        tester.result_path = Path(str(cat_result_path).replace('.categorization_result.txt.gz', '.burden_test.txt.gz'))
         
         if tester.use_n_carrier:
             tester.count_carrier_for_each_category()
