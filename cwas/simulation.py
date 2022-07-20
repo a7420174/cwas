@@ -71,6 +71,11 @@ class Simulation(Runnable):
             dest="use_n_carrier", required=False, default=False, action="store_true",
             help="Use the number of samples with variants in each category for burden test instead of the number of variants",
         )
+        parser.add_argument(
+            "-r", "--resume",
+            dest="resume", required=False, default=False, action="store_true",
+            help="Resume the simulation from the last step. Assume some generated output files are not truncated.",
+        )
         return parser
 
 
@@ -137,6 +142,10 @@ class Simulation(Runnable):
     @property
     def use_n_carrier(self) -> bool:
         return self.args.use_n_carrier
+
+    @property
+    def resume(self) -> bool:
+        return self.args.resume
 
     @property
     def in_vcf(self) -> pd.DataFrame:
@@ -248,20 +257,20 @@ class Simulation(Runnable):
     @property
     def annot_vcf_paths(self) -> list:
         if self._annot_vcf_paths is None:
-            self._annot_vcf_paths = sorted(self.out_dir.glob(f'{self.out_tag}.*.annotated.vcf'))
+            self._annot_vcf_paths = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf'))
         return self._annot_vcf_paths
     
 
     @property
     def cat_result_paths(self) -> list:
         if self._cat_result_paths is None:
-            self._cat_result_paths = sorted(self.out_dir.glob(f'{self.out_tag}.*.categorization_result.txt'))
+            self._cat_result_paths = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.categorization_result.txt.gz'))
         return self._cat_result_paths
     
     @property
     def burden_test_paths(self) -> list:
         if self._burden_test_paths is None:
-            self._burden_test_paths = sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt.gz'))
+            self._burden_test_paths = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.burden_test.txt.gz'))
         return self._burden_test_paths
     
     
@@ -321,29 +330,38 @@ class Simulation(Runnable):
     def make_rand_mut_files(self):
         """ Make VCF files listing random mutations"""
         log.print_progress(self.make_rand_mut_files.__doc__)
-        
-        if len(sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.vcf.gz'))) > 0:
-            if len(sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.vcf.gz'))) == self.num_sim:
-                log.print_log(
-                    "NOTICE",
-                    "You already have random mutation vcfs. Skip this step.",
-                    False,
-                )
-                return
-            else:
-                raise RuntimeError(
-                    "The number of random mutation vcfs is not the same as the number of simulations."
-                    " Check and remove the files to rerun this step."
-                )
+        pre_files = [Path(path) 
+                     for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.vcf.gz'))]
+        if len(pre_files) == 0:
+            target_files = self.rand_mut_paths
+        elif len(pre_files) == self.num_sim:
+            log.print_log(
+                "NOTICE",
+                "You already have random mutation vcfs. Skip this step.",
+                False,
+            )
+            return
+        elif self.resume & (len(pre_files) < self.num_sim):
+            log.print_log(
+                "NOTICE",
+                f"You have some random mutation vcfs ({len(pre_files)}). Resume this step.",
+                False,
+            )
+            target_files = sorted(list(set(self.rand_mut_paths) - set(pre_files)))
+        else:
+            raise RuntimeError(
+                "The number of random mutation vcfs is not the same as the number of simulations."
+                " Check and remove the files to rerun this step."
+            )
             
         if self.num_proc == 1:
-            for output_path in self.rand_mut_paths:
+            for output_path in target_files:
                 self.make_rand_mut_file(output_path)
         else:
             with mp.Pool(self.num_proc) as pool:
                 pool.map(
                     self.make_rand_mut_file,
-                    self.rand_mut_paths
+                    target_files
                 )
         
         for fasta_file in self.fa_file_dict.values():
@@ -423,24 +441,33 @@ class Simulation(Runnable):
     def annotate(self) -> list:
         """ Annotation for random mutations """
         log.print_progress(self.annotate.__doc__)
+        pre_inputs = [Path(str(path).replace('.annotated.vcf', '.vcf.gz')) 
+                      for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf'))]
+        if len(pre_inputs) == 0:
+            target_inputs = self.rand_mut_paths
+        elif len(pre_inputs) == self.num_sim:
+            log.print_log(
+                "NOTICE",
+                "You already have annotated vcfs. Skip this step.",
+                False,
+            )
+            return
+        elif self.resume & (len(pre_inputs) < self.num_sim):
+            log.print_log(
+                "NOTICE",
+                f"You have some annotated vcfs ({len(pre_inputs)}). Resume this step.",
+                False,
+            )
+            target_inputs = sorted(list(set(self.rand_mut_paths) - set(pre_inputs)))
+        else:
+            raise RuntimeError(
+                "The number of annotated vcfs is not the same as the number of simulations."
+                " Check and remove the files to rerun this step."
+            )
 
-        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.annotated.vcf'))) > 0:
-            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.annotated.vcf'))) == self.num_sim:
-                log.print_log(
-                    "NOTICE",
-                    "You already have annotated vcfs. Skip this step.",
-                    False,
-                )
-                return
-            else:
-                raise RuntimeError(
-                    "The number of annotated vcfs is not the same as the number of simulations."
-                    " Check and remove the files to rerun this step."
-                )
-                
         if self.num_proc == 1:
             annot_vcf_paths = []
-            for rand_mut_path in self.rand_mut_paths:
+            for rand_mut_path in target_inputs:
                 annot_vcf_path = self._annotate_one(rand_mut_path)
                 annot_vcf_paths.append(annot_vcf_path)
         else:
@@ -449,7 +476,7 @@ class Simulation(Runnable):
             with mp.Pool(self.num_proc, initializer=mute) as pool:
                 annot_vcf_paths = pool.map(
                     self._annotate_one,
-                    self.rand_mut_paths,
+                    target_inputs,
                 )
                 
         self._annot_vcf_paths = annot_vcf_paths
@@ -470,24 +497,33 @@ class Simulation(Runnable):
     def categorize(self) -> list:
         """ Categorize random mutations """
         log.print_progress(self.categorize.__doc__)
-        
-        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.categorization_result.txt.gz'))) > 0:
-            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.categorization_result.txt.gz'))) == self.num_sim:
-                log.print_log(
-                    "NOTICE",
-                    "You already have categorization results. Skip this step.",
-                    False,
-                )
-                return
-            else:
-                raise RuntimeError(
-                    "The number of categorization results is not the same as the number of simulations."
-                    " Check and remove the files to rerun this step."
-                )
-        
+        pre_inputs = [Path(str(path).replace('.categorization_result.txt.gz', '.annotated.vcf')) 
+                      for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.categorization_result.txt.gz'))]
+        if len(pre_inputs) == 0:
+            target_inputs = self.annot_vcf_paths
+        elif len(pre_inputs) == self.num_sim:
+            log.print_log(
+                "NOTICE",
+                "You already have categorization results. Skip this step.",
+                False,
+            )
+            return
+        elif self.resume & (len(pre_inputs) < self.num_sim):
+            log.print_log(
+                "NOTICE",
+                f"You have some categorization results ({len(pre_inputs)}). Resume this step.",
+                False,
+            )
+            target_inputs = sorted(list(set(self.annot_vcf_paths) - set(pre_inputs)))
+        else:
+            raise RuntimeError(
+                "The number of categorization results is not the same as the number of simulations."
+                " Check and remove the files to rerun this step."
+            )
+
         if self.num_proc == 1:
             cat_result_paths = []
-            for annot_vcf_path in self.annot_vcf_paths:
+            for annot_vcf_path in target_inputs:
                 cat_result_path = self._categorize_one(annot_vcf_path)
                 cat_result_paths.append(cat_result_path)
         else:
@@ -496,7 +532,7 @@ class Simulation(Runnable):
             with mp.Pool(self.num_proc, initializer=mute) as pool:
                 cat_result_paths = pool.map(
                     self._categorize_one,
-                    self.annot_vcf_paths,
+                    target_inputs,
                 )
 
         self._cat_result_paths = cat_result_paths
@@ -516,21 +552,30 @@ class Simulation(Runnable):
     def burden_tests(self) -> list:
         """ Burden tests for random mutations """
         log.print_progress(self.burden_tests.__doc__)
-        
-        if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt.gz'))) > 0:
-            if len(sorted(self.out_dir.glob(f'{self.out_tag}.*.burden_test.txt.gz'))) == self.num_sim:
-                log.print_log(
-                    "NOTICE",
-                    "You already have burden test results. Skip this step.",
-                    False,
-                )
-                return
-            else:
-                raise RuntimeError(
-                    "The number of burden test results is not the same as the number of simulations."
-                    " Check and remove the files to rerun this step."
-                )
-                
+        pre_inputs = [Path(str(path).replace('.burden_test.txt.gz', '.categorization_result.txt.gz')) 
+                      for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.burden_test.txt.gz'))]
+        if len(pre_inputs) == 0:
+            target_inputs = self.cat_result_paths
+        elif len(pre_inputs) == self.num_sim:
+            log.print_log(
+                "NOTICE",
+                "You already have burden test results. Skip this step.",
+                False,
+            )
+            return
+        elif self.resume & (len(pre_inputs) < self.num_sim):
+            log.print_log(
+                "NOTICE",
+                f"You have some burden test results ({len(pre_inputs)}). Resume this step.",
+                False,
+            )
+            target_inputs = sorted(list(set(self.cat_result_paths) - set(pre_inputs)))
+        else:
+            raise RuntimeError(
+                "The number of burden test results is not the same as the number of simulations."
+                " Check and remove the files to rerun this step."
+            )
+
         _burden_test_partial = partial(self._burden_test, 
                                        sample_info_path=self.sample_info_path,
                                        use_n_carrier=self.use_n_carrier,
@@ -538,7 +583,7 @@ class Simulation(Runnable):
         
         if self.num_proc == 1:
             burden_test_paths = []
-            for cat_result_path in self.cat_result_paths:
+            for cat_result_path in target_inputs:
                 burden_test_path = _burden_test_partial(
                     cat_result_path,
                 )
@@ -549,7 +594,7 @@ class Simulation(Runnable):
             with mp.Pool(self.num_proc, initializer=mute) as pool:
                 burden_test_paths = pool.map(
                     _burden_test_partial,
-                    self.cat_result_paths,
+                    target_inputs,
                 )
                 
         self._burden_test_paths = burden_test_paths
