@@ -27,8 +27,7 @@ _default_domains = {
         "IntergenicRegion",
         "5PrimeUTRsRegion",
         "3PrimeUTRsRegion",
-        "AntisenseRegion",
-        "lincRnaRegion",
+        "LongncRnaRegion",
         "OtherTranscriptRegion",
     ],
     "region": ["Any"],  # Custom annotation categories
@@ -52,7 +51,6 @@ _redundant_domain_pairs = {
         ("SNV", "InFrameRegion"),
     },
     ("gene_list", "gencode"): {
-        ("Any", "AntisenseRegion"),
         ("Any", "CodingRegion"),
         ("Any", "FrameshiftRegion"),
         ("Any", "InFrameRegion"),
@@ -60,7 +58,8 @@ _redundant_domain_pairs = {
         ("Any", "DamagingMissenseRegion"),
         ("Any", "MissenseRegion"),
         ("Any", "SilentRegion"),
-        ("Any", "lincRnaRegion"),
+        ("Any", "LongncRnaRegion"),
+        ("Any", "OtherTranscriptRegion"),
     },
 }
 
