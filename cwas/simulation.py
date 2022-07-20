@@ -596,11 +596,11 @@ class Simulation(Runnable):
                 False,
             )
             return
-        with self.cat_result_path.open() as f:
+        with gzip.open(self.cat_result_path, mode='rt') as f:
             header = f.readline()
             header_fields = header.strip().split('\t')
             combs = header_fields[1:]
-        
+
         binom_p = (self.sample_info["PHENOTYPE"] == "case").sum() / np.isin(self.sample_info["PHENOTYPE"], ["case", "ctrl"]).sum()
         default_p = binom_test(x=1, n=2, p=binom_p, alternative='greater')
         default_z = norm.ppf(1 - default_p)
@@ -630,8 +630,8 @@ class Simulation(Runnable):
 
     @staticmethod
     def _get_zscore_dict(burden_test_path: Path, z_dict: dict) -> dict:
-        with burden_test_path.open() as f:
-            _ = f.readline()
+        with gzip.open(burden_test_path, mode='rt') as f:
+            x = f.readline()
 
             for line in f:
                 fields = line.strip().split('\t')
