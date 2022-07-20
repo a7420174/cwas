@@ -5,6 +5,7 @@ channels:
   - defaults
 dependencies:
   - python=3.9
+  - samtools
   - numpy
   - pandas
   - scipy
@@ -21,3 +22,6 @@ dependencies:
   - perl-bio-db-hts
   - perl-test-warnings
   - perl-try-tiny
+  - perl-list-moreutils
+  - perl-dbd-sqlite
+  - perl-bio-db-hts
