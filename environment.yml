@@ -24,4 +24,3 @@ dependencies:
   - perl-try-tiny
   - perl-list-moreutils
   - perl-dbd-sqlite
-  - perl-bio-db-hts
