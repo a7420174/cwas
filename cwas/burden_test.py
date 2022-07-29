@@ -70,7 +70,7 @@ class BurdenTest(Runnable):
     @staticmethod
     def _print_args(args: argparse.Namespace):
         print_arg(
-            "Category result file", 
+            "Categorization result file", 
             args.categorization_result_path
                 if args.categorization_result_path
                 else "Not specified: $CATEGORIZATION_RESULT will be used")
