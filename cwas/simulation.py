@@ -154,14 +154,15 @@ class Simulation(Runnable):
 
     @property
     def in_vcf(self) -> pd.DataFrame:
-        if not self.in_vcf_path:
-            self.in_vcf_path = Path(self.get_env("ANNOTATED_VCF"))
-        check_is_file(self.in_vcf_path)
-
         if self._in_vcf is None:
+            if not self.in_vcf_path:
+                self.in_vcf_path = Path(self.get_env("ANNOTATED_VCF"))
+            check_is_file(self.in_vcf_path)
+            
             self._in_vcf = parse_annotated_vcf(
                 self.in_vcf_path
             )[["REF", "ALT", "SAMPLE"]]
+
         return self._in_vcf
 
     @property
@@ -172,59 +173,60 @@ class Simulation(Runnable):
             )
         return self._sample_info
 
-    @cached_property
+    @property
     def fam_to_label_cnt(self) -> dict:
-        sample_to_fam = self.sample_info.to_dict()['FAMILY']
-        variant_labels = np.vectorize(label_variant)(self.in_vcf.REF.values, self.in_vcf.ALT.values)
-        
-        fam_to_label_cnt = {}
-        for sample, variant_label in zip(self.in_vcf["SAMPLE"].values, variant_labels):
-            family = sample_to_fam[sample]
-            label_cnt_arr = fam_to_label_cnt.get(family, np.zeros(4, dtype=int))
-            label_cnt_arr[variant_label] += 1
-            fam_to_label_cnt[family] = label_cnt_arr
-        
         if self._fam_to_label_cnt is None:
+            sample_to_fam = self.sample_info.to_dict()['FAMILY']
+            variant_labels = np.vectorize(label_variant)(self.in_vcf.REF.values, self.in_vcf.ALT.values)
+            
+            fam_to_label_cnt = {}
+            for sample, variant_label in zip(self.in_vcf["SAMPLE"].values, variant_labels):
+                family = sample_to_fam[sample]
+                label_cnt_arr = fam_to_label_cnt.get(family, np.zeros(4, dtype=int))
+                label_cnt_arr[variant_label] += 1
+                fam_to_label_cnt[family] = label_cnt_arr
+
             self._fam_to_label_cnt = fam_to_label_cnt
             
         return self._fam_to_label_cnt
 
-    @cached_property
+    @property
     def fam_to_sample_set(self) -> dict:
-        sample_to_fam = self.sample_info.to_dict()['FAMILY']
-        
-        fam_to_sample_set = {}
-        for sample in self.in_vcf["SAMPLE"].values:
-            family = sample_to_fam[sample]
-            sample_set = fam_to_sample_set.get(family, set())
-            sample_set.add(sample)
-            fam_to_sample_set[family] = sample_set
-        
         if self._fam_to_sample_set is None:
+            sample_to_fam = self.sample_info.to_dict()['FAMILY']
+            
+            fam_to_sample_set = {}
+            for sample in self.in_vcf["SAMPLE"].values:
+                family = sample_to_fam[sample]
+                sample_set = fam_to_sample_set.get(family, set())
+                sample_set.add(sample)
+                fam_to_sample_set[family] = sample_set
+
             self._fam_to_sample_set = fam_to_sample_set
             
         return self._fam_to_sample_set
 
     @property
     def filepath_dict(self) -> dict:
-        try:
-            self.sim_data_dir = Path(self.get_env("SIMULATION_DATA"))
-            self.annot_data_dir = Path(self.get_env("SIMULATION_PATHS"))
-        except TypeError:
-            raise RuntimeError(
-                "Failed to get one of CWAS environment variable."
-                " Maybe you omitted to run Configuration step."
-            )
-        with open(self.annot_data_dir) as filepath_conf_file:
-            filepath_conf = yaml.safe_load(filepath_conf_file)
-            filepath_dict = {path_key: (self.sim_data_dir / filepath_conf[path_key]) for path_key in filepath_conf}
-        for filepath in filepath_dict.values(): check_is_file(filepath)
-        
         if self._filepath_dict is None:
+            try:
+                self.sim_data_dir = Path(self.get_env("SIMULATION_DATA"))
+                self.annot_data_dir = Path(self.get_env("SIMULATION_PATHS"))
+            except TypeError:
+                raise RuntimeError(
+                    "Failed to get one of CWAS environment variable."
+                    " Maybe you omitted to run Configuration step."
+                )
+            with open(self.annot_data_dir) as filepath_conf_file:
+                filepath_conf = yaml.safe_load(filepath_conf_file)
+                filepath_dict = {path_key: (self.sim_data_dir / filepath_conf[path_key]) for path_key in filepath_conf}
+            for filepath in filepath_dict.values(): check_is_file(filepath)
+
             self._filepath_dict = filepath_dict
+            
         return self._filepath_dict
 
-    @cached_property
+    @property
     def chrom_size_df(self) -> pd.DataFrame:
         if self._chrom_size_df is None:
             self._chrom_size_df = pd.read_table(
@@ -232,31 +234,33 @@ class Simulation(Runnable):
             )
         return self._chrom_size_df
 
-    @cached_property
+    @property
     def fa_file_dict(self) -> dict:
-        # Make a dictionary for FASTA files masked in the previous preparation step.
-        unq_chroms = np.unique(self.chrom_size_df.index.values)
-        fa_file_dict = {}
-
-        for chrom in unq_chroms:
-            fa_file_path = self.filepath_dict[f'{chrom}']
-            fa_file_dict[chrom] = FastaFile(fa_file_path)
-        
         if self._fa_file_dict is None:
+            # Make a dictionary for FASTA files masked in the previous preparation step.
+            unq_chroms = np.unique(self.chrom_size_df.index.values)
+            fa_file_dict = {}
+
+            for chrom in unq_chroms:
+                fa_file_path = self.filepath_dict[f'{chrom}']
+                fa_file_dict[chrom] = FastaFile(fa_file_path)
+        
             self._fa_file_dict = fa_file_dict
             
         return self._fa_file_dict
 
-    @cached_property
+    @property
     def rand_mut_paths(self) -> list:
-        rand_mut_paths = []
-        for i in range(self.num_sim):
-            str_i = str(i+1).zfill(len(str(self.num_sim)))
-            output_filename = f'{self.out_tag}.{str_i}.vcf.gz'
-            output_path = self.out_dir / output_filename
-            rand_mut_paths.append(output_path)
         if self._rand_mut_paths is None:
+            rand_mut_paths = []
+            for i in range(self.num_sim):
+                str_i = str(i+1).zfill(len(str(self.num_sim)))
+                output_filename = f'{self.out_tag}.{str_i}.vcf.gz'
+                output_path = self.out_dir / output_filename
+                rand_mut_paths.append(output_path)
+            
             self._rand_mut_paths = rand_mut_paths
+            
         return self._rand_mut_paths
     
     @property
