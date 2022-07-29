@@ -9,7 +9,7 @@ from cwas.core.categorization.parser import (
     parse_annotated_vcf,
 )
 from cwas.core.common import cmp_two_arr
-from cwas.utils.check import check_is_file, check_num_proc
+from cwas.utils.check import check_is_file, check_num_proc, check_same_n_lines
 from cwas.core.simulation.fastafile import FastaFile
 from cwas.core.simulation.randomize import label_variant, pick_mutation
 from scipy.stats import binom_test, norm
@@ -36,6 +36,7 @@ class Simulation(Runnable):
         self._cat_result_paths = None
         self._burden_test_paths = None
         self._zscore_df = None
+        self._resume = None
 
 
     @staticmethod
@@ -116,7 +117,7 @@ class Simulation(Runnable):
         return (
             self.args.out_dir.resolve()
             if self.args.out_dir
-            else Path(self.get_env("CWAS_WORKSPACE")) / "random-mutations"
+            else self.workspace / "random-mutations"
         )
 
     @property
@@ -145,7 +146,9 @@ class Simulation(Runnable):
 
     @property
     def resume(self) -> bool:
-        return self.args.resume
+        if self._resume is None:
+            self._resume = self.args.resume
+        return self._resume
 
     @property
     def in_vcf(self) -> pd.DataFrame:
@@ -330,11 +333,12 @@ class Simulation(Runnable):
     def make_rand_mut_files(self):
         """ Make VCF files listing random mutations"""
         log.print_progress(self.make_rand_mut_files.__doc__)
-        pre_files = [Path(path) 
-                     for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.vcf.gz'))]
+        pre_files = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.vcf.gz'))
         if len(pre_files) == 0:
             target_files = self.rand_mut_paths
         elif len(pre_files) == self.num_sim:
+            log.print_progress("Checking the number of lines for the last 100 VCFs...")
+            check_same_n_lines(pre_files[-100:], gzip_file=True)
             log.print_log(
                 "NOTICE",
                 "You already have random mutation vcfs. Skip this step.",
@@ -342,12 +346,15 @@ class Simulation(Runnable):
             )
             return
         elif self.resume & (len(pre_files) < self.num_sim):
+            log.print_progress("Checking the number of lines for the last 100 VCFs...")
+            check_same_n_lines(pre_files[-100:], gzip_file=True)
             log.print_log(
                 "NOTICE",
                 f"You have some random mutation vcfs ({len(pre_files)}). Resume this step.",
                 False,
             )
             target_files = sorted(list(set(self.rand_mut_paths) - set(pre_files)))
+            self._resume = False
         else:
             raise RuntimeError(
                 "The number of random mutation vcfs is not the same as the number of simulations."
@@ -438,27 +445,31 @@ class Simulation(Runnable):
         return variant
     
     
-    def annotate(self) -> list:
+    def annotate(self):
         """ Annotation for random mutations """
         log.print_progress(self.annotate.__doc__)
-        pre_inputs = [Path(str(path).replace('.annotated.vcf', '.vcf.gz')) 
-                      for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf'))]
-        if len(pre_inputs) == 0:
+        pre_files = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf'))
+        if len(pre_files) == 0:
             target_inputs = self.rand_mut_paths
-        elif len(pre_inputs) == self.num_sim:
+        elif len(pre_files) == self.num_sim:
+            log.print_progress("Checking the number of lines for the last 100 VCFs...")
+            check_same_n_lines(pre_files[-100:])
             log.print_log(
                 "NOTICE",
                 "You already have annotated vcfs. Skip this step.",
                 False,
             )
             return
-        elif self.resume & (len(pre_inputs) < self.num_sim):
+        elif self.resume & (len(pre_files) < self.num_sim):
+            log.print_progress("Checking the number of lines for the last 100 VCFs...")
+            check_same_n_lines(pre_files[-100:])
             log.print_log(
                 "NOTICE",
-                f"You have some annotated vcfs ({len(pre_inputs)}). Resume this step.",
+                f"You have some annotated vcfs ({len(pre_files)}). Resume this step.",
                 False,
             )
-            target_inputs = sorted(list(set(self.rand_mut_paths) - set(pre_inputs)))
+            target_inputs = sorted(list(set(self.rand_mut_paths) - set([Path(str(path).replace('.annotated.vcf', '.vcf.gz')) for path in pre_files])))
+            self._resume = False
         else:
             raise RuntimeError(
                 "The number of annotated vcfs is not the same as the number of simulations."
@@ -466,24 +477,20 @@ class Simulation(Runnable):
             )
 
         if self.num_proc == 1:
-            annot_vcf_paths = []
             for rand_mut_path in target_inputs:
-                annot_vcf_path = self._annotate_one(rand_mut_path)
-                annot_vcf_paths.append(annot_vcf_path)
+                self._annotate_one(rand_mut_path)
         else:
             def mute():
                 sys.stderr = open(os.devnull, 'w')  
             with mp.Pool(self.num_proc, initializer=mute) as pool:
-                annot_vcf_paths = pool.map(
+                pool.map(
                     self._annotate_one,
                     target_inputs,
                 )
-                
-        self._annot_vcf_paths = annot_vcf_paths
 
 
     @staticmethod
-    def _annotate_one(rand_mut_path: Path) -> Path:
+    def _annotate_one(rand_mut_path: Path):
         annotator = Annotation.get_instance(['-v', str(rand_mut_path)])
         annotator.vep_output_vcf_path = str(rand_mut_path).replace('.vcf.gz', '.vep.vcf')
         annotator.annotate_using_bigwig()
@@ -491,30 +498,33 @@ class Simulation(Runnable):
         annotator.annotate_using_bed()
         # os.remove(annotator.vep_output_vcf_gz_path)
         # os.remove(annotator.vep_output_vcf_gz_path + '.tbi')
-        return Path(annotator.annotated_vcf_path)
     
     
-    def categorize(self) -> list:
+    def categorize(self):
         """ Categorize random mutations """
         log.print_progress(self.categorize.__doc__)
-        pre_inputs = [Path(str(path).replace('.categorization_result.txt.gz', '.annotated.vcf')) 
-                      for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.categorization_result.txt.gz'))]
-        if len(pre_inputs) == 0:
+        pre_files = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.categorization_result.txt.gz'))
+        if len(pre_files) == 0:
             target_inputs = self.annot_vcf_paths
-        elif len(pre_inputs) == self.num_sim:
+        elif len(pre_files) == self.num_sim:
+            log.print_progress("Checking the number of lines for the last 100 result files...")
+            check_same_n_lines(pre_files[-100:], gzip_file=True)
             log.print_log(
                 "NOTICE",
                 "You already have categorization results. Skip this step.",
                 False,
             )
             return
-        elif self.resume & (len(pre_inputs) < self.num_sim):
+        elif self.resume & (len(pre_files) < self.num_sim):
+            log.print_progress("Checking the number of lines for the last 100 result files...")
+            check_same_n_lines(pre_files[-100:], gzip_file=True)
             log.print_log(
                 "NOTICE",
-                f"You have some categorization results ({len(pre_inputs)}). Resume this step.",
+                f"You have some categorization results ({len(pre_files)}). Resume this step.",
                 False,
             )
-            target_inputs = sorted(list(set(self.annot_vcf_paths) - set(pre_inputs)))
+            target_inputs = sorted(list(set(self.annot_vcf_paths) - set([Path(str(path).replace('.categorization_result.txt.gz', '.annotated.vcf')) for path in pre_files])))
+            self._resume = False
         else:
             raise RuntimeError(
                 "The number of categorization results is not the same as the number of simulations."
@@ -522,54 +532,50 @@ class Simulation(Runnable):
             )
 
         if self.num_proc == 1:
-            cat_result_paths = []
             for annot_vcf_path in target_inputs:
-                cat_result_path = self._categorize_one(annot_vcf_path)
-                cat_result_paths.append(cat_result_path)
+                self._categorize_one(annot_vcf_path)
         else:
             def mute():
                 sys.stderr = open(os.devnull, 'w')
             with mp.Pool(self.num_proc, initializer=mute) as pool:
-                cat_result_paths = pool.map(
+                pool.map(
                     self._categorize_one,
                     target_inputs,
                 )
 
-        self._cat_result_paths = cat_result_paths
-
 
     @staticmethod
-    def _categorize_one(annot_vcf_path: Path) -> Path:
+    def _categorize_one(annot_vcf_path: Path):
         categorizer = Categorization.get_instance()
         categorizer.annotated_vcf = parse_annotated_vcf(annot_vcf_path)
         categorizer.result_path = Path(str(annot_vcf_path).replace('.annotated.vcf', '.categorization_result.txt.gz'))
         categorizer.categorize_vcf()
         categorizer.remove_redundant_category()
         categorizer.save_result()
-        return categorizer.result_path
 
 
-    def burden_tests(self) -> list:
+    def burden_tests(self):
         """ Burden tests for random mutations """
         log.print_progress(self.burden_tests.__doc__)
-        pre_inputs = [Path(str(path).replace('.burden_test.txt.gz', '.categorization_result.txt.gz')) 
-                      for path in sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.burden_test.txt.gz'))]
-        if len(pre_inputs) == 0:
+        pre_files = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.burden_test.txt.gz'))
+        if len(pre_files) == 0:
             target_inputs = self.cat_result_paths
-        elif len(pre_inputs) == self.num_sim:
+        elif len(pre_files) == self.num_sim:
             log.print_log(
                 "NOTICE",
                 "You already have burden test results. Skip this step.",
                 False,
             )
             return
-        elif self.resume & (len(pre_inputs) < self.num_sim):
+        elif self.resume & (len(pre_files) < self.num_sim):
             log.print_log(
-                "NOTICE",
-                f"You have some burden test results ({len(pre_inputs)}). Resume this step.",
+                "WARNING",
+                f"You have some burden test results ({len(pre_files)}). "
+                f"Resume this step. Check whether the files are truncated.",
                 False,
             )
-            target_inputs = sorted(list(set(self.cat_result_paths) - set(pre_inputs)))
+            target_inputs = sorted(list(set(self.cat_result_paths) - set([Path(str(path).replace('.burden_test.txt.gz', '.categorization_result.txt.gz')) for path in pre_files])))
+            self._resume = False
         else:
             raise RuntimeError(
                 "The number of burden test results is not the same as the number of simulations."
@@ -582,25 +588,22 @@ class Simulation(Runnable):
                                        adj_factor_path=self.adj_factor_path)
         
         if self.num_proc == 1:
-            burden_test_paths = []
             for cat_result_path in target_inputs:
-                burden_test_path = _burden_test_partial(
+                _burden_test_partial(
                     cat_result_path,
                 )
-                burden_test_paths.append(burden_test_path)
         else:
             def mute():
                 sys.stderr = open(os.devnull, 'w')
             with mp.Pool(self.num_proc, initializer=mute) as pool:
-                burden_test_paths = pool.map(
+                pool.map(
                     _burden_test_partial,
                     target_inputs,
                 )
-                
-        self._burden_test_paths = burden_test_paths
+
 
     @staticmethod
-    def _burden_test(cat_result_path: Path, sample_info_path: Path, adj_factor_path: Optional[Path], use_n_carrier: bool) -> Path:
+    def _burden_test(cat_result_path: Path, sample_info_path: Path, adj_factor_path: Optional[Path], use_n_carrier: bool):
         argv = ['-c', str(cat_result_path), '-s', str(sample_info_path)]
         if adj_factor_path is not None:
             argv.extend(['-a', str(adj_factor_path)])
@@ -619,9 +622,8 @@ class Simulation(Runnable):
         tester.run_burden_test()
         tester.concat_category_info()
         tester.save_result()
-        return tester.result_path
 
-        
+
     def concat_zscores(self):
         """ Concatenate zscores for each result """
         log.print_progress(self.concat_zscores.__doc__)
