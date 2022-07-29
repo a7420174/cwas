@@ -39,7 +39,7 @@ class BurdenTest(Runnable):
             dest="categorization_result_path",
             required=False,
             type=Path,
-            help="The path of the category result file",
+            help="The path of the categorization result file",
         )
         parser.add_argument(
             "-s",
