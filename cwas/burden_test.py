@@ -81,6 +81,8 @@ class BurdenTest(Runnable):
     @staticmethod
     def _check_args_validity(args: argparse.Namespace):
         check_is_file(args.sample_info_path)
+        if args.categorization_result_path:
+            check_is_file(args.categorization_result_path)
         if args.adj_factor_path is not None:
             check_is_file(args.adj_factor_path)
 

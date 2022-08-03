@@ -99,6 +99,8 @@ class Simulation(Runnable):
     def _check_args_validity(args: argparse.Namespace):
         check_is_file(args.sample_info_path)
         check_num_proc(args.num_proc)
+        if args.in_vcf_path:
+            check_is_file(args.in_vcf_path)
         if args.adj_factor_path is not None:
             check_is_file(args.adj_factor_path)
 
