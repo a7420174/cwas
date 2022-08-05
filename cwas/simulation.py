@@ -2,7 +2,7 @@ import multiprocessing as mp
 import pandas as pd
 import numpy as np
 import yaml, os, gzip, sys, argparse, pickle
-from functools import cached_property, partial
+from functools import partial
 from pathlib import Path
 import cwas.utils.log as log
 from cwas.core.categorization.parser import (
@@ -157,13 +157,9 @@ class Simulation(Runnable):
     @property
     def in_vcf(self) -> pd.DataFrame:
         if self._in_vcf is None:
-            if not self.in_vcf_path:
-                self.in_vcf_path = Path(self.get_env("ANNOTATED_VCF"))
-            check_is_file(self.in_vcf_path)
-            
             self._in_vcf = parse_annotated_vcf(
                 self.in_vcf_path
-            )[["REF", "ALT", "SAMPLE"]]
+            )[["REF", "ALT", "SAMPLE"]] 
 
         return self._in_vcf
 
