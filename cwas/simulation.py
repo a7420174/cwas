@@ -393,7 +393,7 @@ class Simulation(Runnable):
                     rand_variant = self.make_random_mutation(label, sample_ids)
                     rand_variants.append(rand_variant)
 
-        rand_variants.sort(key=lambda x: (x.get('chrom'), x.get('pos')))
+        rand_variants.sort(key=lambda x: (int(x.get('chrom').replace('chr', '')), x.get('pos')))
         
         with gzip.open(output_path, 'wt') as outfile:
             print('#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', sep='\t', file=outfile)
