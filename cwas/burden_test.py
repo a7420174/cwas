@@ -162,7 +162,7 @@ class BurdenTest(Runnable):
     def result_path(self) -> Path:
         if self._result_path is None:
             self._result_path = Path(
-                self.get_env("CATEGORIZATION_RESULT").replace(
+                str(self.categorization_result_path).replace(
                     '.categorization_result.txt', '.burden_test.txt'
                 )
             )
