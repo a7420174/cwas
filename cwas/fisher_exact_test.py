@@ -7,6 +7,16 @@ from cwas.utils.log import print_progress
 
 
 class FisherExactTest(BurdenTest):
+    @property
+    def result_path(self) -> Path:
+        if self._result_path is None:
+            self._result_path = Path(
+                str(self.categorization_result_path).replace(
+                    '.categorization_result.txt', '.fisher_test.txt'
+                )
+            )
+        return self._result_path
+    
     def run_burden_test(self):
         print_progress("Run Fisher's exact test")
         

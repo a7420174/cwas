@@ -11,6 +11,16 @@ class BinomialTest(BurdenTest):
     def binom_p(self) -> float:
         return (self.phenotypes == "case").sum() / np.isin(self.phenotypes, ["case", "ctrl"]).sum()
 
+    @property
+    def result_path(self) -> Path:
+        if self._result_path is None:
+            self._result_path = Path(
+                str(self.categorization_result_path).replace(
+                    '.categorization_result.txt', '.binomial_test.txt'
+                )
+            )
+        return self._result_path
+    
     def run_burden_test(self):
         print_progress("Run binomial test")
         if self.use_n_carrier:

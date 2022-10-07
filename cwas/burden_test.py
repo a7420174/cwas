@@ -160,13 +160,7 @@ class BurdenTest(Runnable):
 
     @property
     def result_path(self) -> Path:
-        if self._result_path is None:
-            self._result_path = Path(
-                str(self.categorization_result_path).replace(
-                    '.categorization_result.txt', '.burden_test.txt'
-                )
-            )
-        return self._result_path
+        pass
 
     @result_path.setter
     def result_path(self, path: Path):
