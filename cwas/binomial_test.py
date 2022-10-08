@@ -1,3 +1,4 @@
+from pathlib import Path
 import numpy as np
 from scipy.stats import norm
 
@@ -9,7 +10,7 @@ from cwas.utils.log import print_progress
 class BinomialTest(BurdenTest):
     @property
     def binom_p(self) -> float:
-        return (self.phenotypes == "case").sum() / np.isin(self.phenotypes, ["case", "ctrl"]).sum()
+        return self.case_cnt / (self.case_cnt + self.ctrl_cnt)
 
     @property
     def result_path(self) -> Path:
