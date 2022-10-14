@@ -1,15 +1,15 @@
 from collections import deque
 
-import pysam
+import pysam, gzip
 
 
 # TODO: Make this code much clearer
-def annotate(in_vcf_gz_path: str, out_vcf_path: str, annot_bed_path: str):
+def annotate(in_vcf_gz_path: str, out_vcf_gz_path: str, annot_bed_path: str):
     chroms = [f"chr{n}" for n in range(1, 23)]
 
     with pysam.TabixFile(in_vcf_gz_path) as in_vcf_file, pysam.TabixFile(
         annot_bed_path
-    ) as annot_bed_file, open(out_vcf_path, "w") as out_vcf_file:
+    ) as annot_bed_file, gzip.open(out_vcf_gz_path, "wt") as out_vcf_file:
         # Make and write headers
         vcf_headers = in_vcf_file.header
         annot_key_str = annot_bed_file.header[0].split("=")[1]

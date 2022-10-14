@@ -156,5 +156,5 @@ class Annotation(Runnable):
         )
 
     def update_env(self):
-        self.set_env("ANNOTATED_VCF", self.annotated_vcf_path)
+        self.set_env("ANNOTATED_VCF", self.annotated_vcf_gz_path)
         self.save_env()

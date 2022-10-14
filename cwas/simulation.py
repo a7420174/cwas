@@ -552,7 +552,7 @@ class Simulation(Runnable):
     def _categorize_one(annot_vcf_path: Path):
         categorizer = Categorization.get_instance()
         categorizer.annotated_vcf = parse_annotated_vcf(annot_vcf_path)
-        categorizer.result_path = Path(str(annot_vcf_path).replace('.annotated.vcf', '.categorization_result.txt.gz'))
+        categorizer.result_path = Path(str(annot_vcf_path).replace('.annotated.vcf.gz', '.categorization_result.txt.gz'))
         categorizer.categorize_vcf()
         categorizer.remove_redundant_category()
         categorizer.save_result()
