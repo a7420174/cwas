@@ -726,6 +726,7 @@ class Simulation(Runnable):
                 neg_lap = pickle.load(f)
 
         if not self.eig_val_path.is_file():
+            log.print_progress("Calculating the eigenvalues of the negative laplacian matrix")
             eig_vals, _ = np.linalg.eig(neg_lap)
             log.print_progress("Writing the eigenvalues to file")
             pickle.dump(eig_vals, open(self.eig_val_path, 'wb'), protocol=5)
