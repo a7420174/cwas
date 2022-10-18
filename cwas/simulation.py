@@ -36,6 +36,8 @@ class Simulation(Runnable):
         self._annot_vcf_paths = None
         self._cat_result_paths = None
         self._burden_test_paths = None
+        self._test_result_path = None
+        self._binom_p = None
         self._zscore_df = None
         self._resume = None
 
@@ -281,6 +283,36 @@ class Simulation(Runnable):
             self._burden_test_paths = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.burden_test.txt.gz'))
         return self._burden_test_paths
     
+    @property
+    def test_result_path(self) -> Path:
+        if self._test_result_path is None:
+            try:
+                self._test_result_path = Path(self.get_env("BURDEN_TEST_RESULT"))
+            except TypeError:
+                raise RuntimeError(
+                    "Failed to get $BURDEN_TEST_RESULT CWAS environment variable."
+                    " Maybe you omitted to run BurdenTest step."
+                )
+        return self._test_result_path
+
+    @property
+    def test_result(self) -> pd.DataFrame:
+        if self._test_result is None:
+            log.print_progress("Load the burden test result")
+            self._test_result = pd.read_table(
+                self.test_result_path, index_col="Category"
+            )
+            try:
+                self._test_result["Count"] = self._test_result["Case_Variant_Count"] + self._test_result["Ctrl_Variant_Count"]
+            except KeyError:
+                self._test_result["Count"] = self._test_result["Case_Carrier_Count"] + self._test_result["Ctrl_Carrier_Count"]
+        return self._test_result
+
+    @property
+    def binom_p(self) -> float:
+        if self._binom_p is None:
+            self._binom_p = (self.sample_info["PHENOTYPE"] == "case").sum() / np.isin(self.sample_info["PHENOTYPE"], ["case", "ctrl"]).sum()
+        return self._binom_p
     
     @property
     def zscore_df_path(self) -> Path:
@@ -297,19 +329,19 @@ class Simulation(Runnable):
     @property
     def corr_mat_path(self) -> Path:
         return Path(
-            str(self.zscore_df_path).replace('.zscores.txt', '.corr_mat.pickle')
+            str(self.zscore_df_path).replace('.zscores.txt.gz', '.corr_mat.pickle')
         )
 
     @property
     def neg_lap_path(self) -> Path:
         return Path(
-            str(self.zscore_df_path).replace('.zscores.txt', '.neg_lap.pickle')
+            str(self.zscore_df_path).replace('.zscores.txt.gz', '.neg_lap.pickle')
         )
         
     @property
     def eig_val_path(self) -> Path:
         return Path(
-            str(self.zscore_df_path).replace('.zscores.txt', '.eig_vals.pickle')
+            str(self.zscore_df_path).replace('.zscores.txt.gz', '.eig_vals.pickle')
         )
 
     def run(self):
@@ -625,14 +657,6 @@ class Simulation(Runnable):
         """ Concatenate zscores for each result """
         log.print_progress(self.concat_zscores.__doc__)
         
-        try:
-            self.cat_result_path = Path(self.get_env("CATEGORIZATION_RESULT"))
-        except TypeError:
-            raise RuntimeError(
-                "Failed to get $CATEGORIZATION_RESULT CWAS environment variable."
-                " Maybe you omitted to run Categorization step."
-            )
-        
         if self.zscore_df_path.is_file():
             log.print_log(
                 "NOTICE",
@@ -640,13 +664,10 @@ class Simulation(Runnable):
                 False,
             )
             return
-        with gzip.open(self.cat_result_path, mode='rt') as f:
-            header = f.readline()
-            header_fields = header.strip().split('\t')
-            combs = header_fields[1:]
+        
+        combs = self.test_result.index.tolist()
 
-        binom_p = (self.sample_info["PHENOTYPE"] == "case").sum() / np.isin(self.sample_info["PHENOTYPE"], ["case", "ctrl"]).sum()
-        default_p = binom_test(x=1, n=2, p=binom_p, alternative='greater')
+        default_p = binom_test(x=1, n=2, p=self.binom_p, alternative='greater')
         default_z = norm.ppf(1 - default_p)
 
         default_z_dict = {comb: default_z for comb in combs}
@@ -675,13 +696,12 @@ class Simulation(Runnable):
     @staticmethod
     def _get_zscore_dict(burden_test_path: Path, z_dict: dict) -> dict:
         with gzip.open(burden_test_path, mode='rt') as f:
-            x = f.readline()
-
+            _ = f.readline()
             for line in f:
                 fields = line.strip().split('\t')
-
+            ## Get z score for each category
                 if z_dict.get(fields[0]) is not None:
-                    z_dict[fields[0]] = float(fields[6])
+                    z_dict[fields[0]] = float(fields[11])
                     
         return z_dict
       
@@ -691,8 +711,21 @@ class Simulation(Runnable):
         log.print_progress(self.get_n_etests.__doc__)
         
         if not self.corr_mat_path.is_file():
-            zscore_mat = self.zscore_df.values
-            corr_mat = np.corrcoef(zscore_mat.T)
+            ## Set a cutoff for variant count (or carrier count) of each category
+            cutoff = 1
+            exp_pval = 1
+            while exp_pval >= 0.05:
+                cutoff+=1
+                exp_pval = binom_test(cutoff-1, cutoff, self.binom_p, alternative='greater')
+            log.print_log(
+                "NOTICE",
+                "The cutoff for variant count (or carrier count) of each category used to calculate # of effective tests is set to {}.".format(cutoff),
+                False,
+            )
+            filtered_combs = self.test_result.index[self.test_result['Count'] >= cutoff].tolist()
+            
+            filtered_zscore_mat = self.zscore_df[filtered_combs].values
+            corr_mat = np.corrcoef(filtered_zscore_mat.T)
             if np.isnan(corr_mat).any():
                 log.print_warn("The correlation matrix contains NaN. NaN will be replaced with 0,1.")
                 for i in range(corr_mat.shape[0]):
@@ -729,7 +762,7 @@ class Simulation(Runnable):
                 eig_vals = pickle.load(f)
         
         e = 1e-12
-        eig_vals = sorted(eig_vals, key=np.linalg.norm)[::-1]
+        eig_vals = sorted(eig_vals, key=np.linalg.norm, reverse=True)
         num_eig_val = self.num_sim
         clean_eig_vals = np.array(eig_vals[:num_eig_val])
         clean_eig_vals = clean_eig_vals[clean_eig_vals >= e]
