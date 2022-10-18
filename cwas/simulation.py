@@ -488,7 +488,7 @@ class Simulation(Runnable):
             target_inputs = self.rand_mut_paths
         elif len(pre_files) == self.num_sim:
             log.print_progress("Checking the number of lines for the last 100 VCFs...")
-            check_same_n_lines(pre_files[-100:])
+            check_same_n_lines(pre_files[-100:], gzip_file=True)
             log.print_log(
                 "NOTICE",
                 "You already have annotated vcfs. Skip this step.",
@@ -497,7 +497,7 @@ class Simulation(Runnable):
             return
         elif self.resume & (len(pre_files) < self.num_sim):
             log.print_progress("Checking the number of lines for the last 100 VCFs...")
-            check_same_n_lines(pre_files[-100:])
+            check_same_n_lines(pre_files[-100:], gzip_file=True)
             log.print_log(
                 "NOTICE",
                 f"You have some annotated vcfs ({len(pre_files)}). Resume this step.",
