@@ -8,6 +8,7 @@ import cwas.utils.log as log
 from cwas.core.categorization.parser import (
     parse_annotated_vcf,
 )
+from tqdm import tqdm
 from cwas.core.common import cmp_two_arr
 from cwas.utils.check import check_is_file, check_num_proc, check_same_n_lines
 from cwas.core.simulation.fastafile import FastaFile
@@ -366,14 +367,12 @@ class Simulation(Runnable):
             )
             
         if self.num_proc == 1:
-            for output_path in target_files:
+            for output_path in tqdm(target_files):
                 self.make_rand_mut_file(output_path)
         else:
             with mp.Pool(self.num_proc) as pool:
-                pool.map(
-                    self.make_rand_mut_file,
-                    target_files
-                )
+                for _ in tqdm(pool.imap_unordered(self.make_rand_mut_file, target_files), total=len(target_files)):
+                    pass
         
         for fasta_file in self.fa_file_dict.values():
             fasta_file.close()
@@ -481,16 +480,14 @@ class Simulation(Runnable):
             )
 
         if self.num_proc == 1:
-            for rand_mut_path in target_inputs:
+            for rand_mut_path in tqdm(target_inputs):
                 self._annotate_one(rand_mut_path)
         else:
             def mute():
                 sys.stderr = open(os.devnull, 'w')  
             with mp.Pool(self.num_proc, initializer=mute) as pool:
-                pool.map(
-                    self._annotate_one,
-                    target_inputs,
-                )
+                for _ in tqdm(pool.imap_unordered(self._annotate_one, target_inputs), total=len(target_inputs)):
+                    pass
 
 
     @staticmethod
@@ -536,16 +533,14 @@ class Simulation(Runnable):
             )
 
         if self.num_proc == 1:
-            for annot_vcf_path in target_inputs:
+            for annot_vcf_path in tqdm(target_inputs):
                 self._categorize_one(annot_vcf_path)
         else:
             def mute():
                 sys.stderr = open(os.devnull, 'w')
             with mp.Pool(self.num_proc, initializer=mute) as pool:
-                pool.map(
-                    self._categorize_one,
-                    target_inputs,
-                )
+                for _ in tqdm(pool.imap_unordered(self._categorize_one, target_inputs), total=len(target_inputs)):
+                    pass
 
 
     @staticmethod
@@ -600,10 +595,8 @@ class Simulation(Runnable):
             def mute():
                 sys.stderr = open(os.devnull, 'w')
             with mp.Pool(self.num_proc, initializer=mute) as pool:
-                pool.map(
-                    _burden_test_partial,
-                    target_inputs,
-                )
+                for _ in tqdm(pool.imap_unordered(_burden_test_partial, target_inputs), total=len(target_inputs)):
+                    pass
 
 
     @staticmethod
@@ -714,9 +707,10 @@ class Simulation(Runnable):
                 corr_mat = pickle.load(f)
 
         if not self.neg_lap_path.is_file():
+            log.print_progress("Generating the negative laplacian matrix")
             neg_lap = np.abs(corr_mat)
             degrees = np.sum(neg_lap, axis=0)
-            for i in range(neg_lap.shape[0]):
+            for i in tqdm(range(neg_lap.shape[0])):
                 neg_lap[i, :] = neg_lap[i, :] / np.sqrt(degrees)
                 neg_lap[:, i] = neg_lap[:, i] / np.sqrt(degrees)
             log.print_progress("Writing the negative laplacian matrix to file")

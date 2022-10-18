@@ -8,6 +8,7 @@ dependencies:
   - numpy
   - pandas
   - scipy
+  - tqdm
   - pysam=0.18.0
   - tabix
   - pyyaml
