@@ -38,6 +38,7 @@ class Simulation(Runnable):
         self._cat_result_paths = None
         self._burden_test_paths = None
         self._test_result_path = None
+        self._test_result = None
         self._binom_p = None
         self._zscore_df = None
         self._resume = None
