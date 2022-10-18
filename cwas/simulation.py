@@ -731,7 +731,7 @@ class Simulation(Runnable):
             filtered_zscore_mat = self.zscore_df[filtered_combs].values
             corr_mat = np.corrcoef(filtered_zscore_mat.T)
             if np.isnan(corr_mat).any():
-                log.print_warn("The correlation matrix contains NaN. NaN will be replaced with 0,1.")
+                log.print_warn("The correlation matrix contains NaN. NaN will be replaced with 1.0.")
                 for i in range(corr_mat.shape[0]):
                     if np.isnan(corr_mat[i, i]):
                         corr_mat[i, i] = 1.0
