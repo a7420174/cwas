@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import re
 import pandas as pd
 import numpy as np
 import yaml, os, gzip, sys, argparse, pickle
@@ -317,7 +318,9 @@ class Simulation(Runnable):
     @property
     def zscore_df_path(self) -> Path:
         return Path(
-            str(self.cat_result_path).replace('.categorization_result.txt', '.zscores.txt')
+            re.sub(r'\.\w+_test\.txt', 
+                   '.zscores.txt', 
+                   str(self.test_result_path))
         )
         
     @property
