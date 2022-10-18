@@ -264,7 +264,7 @@ class Simulation(Runnable):
     @property
     def annot_vcf_paths(self) -> list:
         if self._annot_vcf_paths is None:
-            self._annot_vcf_paths = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf'))
+            self._annot_vcf_paths = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf.gz'))
         return self._annot_vcf_paths
     
 
@@ -452,7 +452,7 @@ class Simulation(Runnable):
     def annotate(self):
         """ Annotation for random mutations """
         log.print_progress(self.annotate.__doc__)
-        pre_files = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf'))
+        pre_files = sorted(self.out_dir.glob(f'{self.out_tag}.{"?"*len(str(self.num_sim))}.annotated.vcf.gz'))
         if len(pre_files) == 0:
             target_inputs = self.rand_mut_paths
         elif len(pre_files) == self.num_sim:
@@ -472,7 +472,7 @@ class Simulation(Runnable):
                 f"You have some annotated vcfs ({len(pre_files)}). Resume this step.",
                 False,
             )
-            target_inputs = sorted(list(set(self.rand_mut_paths) - set([Path(str(path).replace('.annotated.vcf', '.vcf.gz')) for path in pre_files])))
+            target_inputs = sorted(list(set(self.rand_mut_paths) - set([Path(str(path).replace('.annotated.vcf.gz', '.vcf.gz')) for path in pre_files])))
             self._resume = False
         else:
             raise RuntimeError(
@@ -527,7 +527,7 @@ class Simulation(Runnable):
                 f"You have some categorization results ({len(pre_files)}). Resume this step.",
                 False,
             )
-            target_inputs = sorted(list(set(self.annot_vcf_paths) - set([Path(str(path).replace('.categorization_result.txt.gz', '.annotated.vcf')) for path in pre_files])))
+            target_inputs = sorted(list(set(self.annot_vcf_paths) - set([Path(str(path).replace('.categorization_result.txt.gz', '.annotated.vcf.gz')) for path in pre_files])))
             self._resume = False
         else:
             raise RuntimeError(

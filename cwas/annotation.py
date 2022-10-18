@@ -94,14 +94,14 @@ class Annotation(Runnable):
         return self.vep_output_vcf_path.replace(".vcf", ".vcf.gz")
 
     @property
-    def annotated_vcf_path(self):
+    def annotated_vcf_gz_path(self):
         return (
-            f"{self.vep_output_vcf_path.replace('.vep.vcf', '.annotated.vcf')}"
+            f"{self.vep_output_vcf_gz_path.replace('.vep.vcf.gz', '.annotated.vcf.gz')}"
         )
 
-    @annotated_vcf_path.setter
-    def annotated_vcf_path(self, path: str):
-        self._annotated_vcf_path = path
+    @annotated_vcf_gz_path.setter
+    def annotated_vcf_gz_path(self, path: str):
+        self._annotated_vcf_gz_path = path
 
     @property
     def bw_custom_annotations(self):
@@ -142,7 +142,7 @@ class Annotation(Runnable):
 
     def annotate_using_bed(self):
         print_progress("BED custom annotation")
-        if Path(self.annotated_vcf_path).is_file():
+        if Path(self.annotated_vcf_gz_path).is_file():
             print_log(
                 "NOTICE",
                 "You have already done the BED custom annotation.",
@@ -151,7 +151,7 @@ class Annotation(Runnable):
             return
         _annotate_using_bed(
             self.vep_output_vcf_gz_path,
-            self.annotated_vcf_path,
+            self.annotated_vcf_gz_path,
             self.get_env("MERGED_BED"),
         )
 
