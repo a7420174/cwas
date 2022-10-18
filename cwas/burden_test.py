@@ -162,10 +162,6 @@ class BurdenTest(Runnable):
     def result_path(self) -> Path:
         pass
 
-    @result_path.setter
-    def result_path(self, path: Path):
-        self._result_path = path
-
     @property
     def phenotypes(self) -> np.ndarray:
         if self._phenotypes is None:

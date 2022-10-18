@@ -21,7 +21,11 @@ class BinomialTest(BurdenTest):
                 )
             )
         return self._result_path
-    
+
+    @result_path.setter
+    def result_path(self, path: Path):
+        self._result_path = path
+
     def run_burden_test(self):
         print_progress("Run binomial test")
         if self.use_n_carrier:
