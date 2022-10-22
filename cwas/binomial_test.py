@@ -42,4 +42,5 @@ class BinomialTest(BurdenTest):
         self._result["P_1side"] = np.vectorize(binom_one_tail)(
             n1 + 1, n2 + 1, self.binom_p
         )
-        self._result["Z_1side"] = norm.ppf(1 - self._result["P_1side"].values)
+        # Set a lower limit to calculate finite z scores for p-values of one
+        self._result["Z_1side"] = min(norm.ppf(1 - self._result["P_1side"].values), norm.ppf(1 - 0.9999999999999999))
