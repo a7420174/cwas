@@ -7,79 +7,45 @@ from cwas.utils.check import check_is_dir
 
 class VepCmdGenerator:
     def __init__(self, vep_path: str,
-                 vep_conservation_path: str, vep_loftee_path: str, vep_human_ancestor_fa_path: str, vep_gerp_bw_path: str, vep_mpc_path: str,
+                 vep_conservation_path: str, vep_loftee_path: str, 
+                 vep_human_ancestor_fa_path: str, vep_gerp_bw_path: str,
+                 vep_mis_db_path: str, vep_mis_info_key: str,
                  input_vcf_path: str) -> None:
         self._vep_path = vep_path
         self._vep_conservation_path = vep_conservation_path
         self._vep_loftee_path = vep_loftee_path
         self._vep_human_ancestor_fa_path = vep_human_ancestor_fa_path
         self._vep_gerp_bw_path = vep_gerp_bw_path
-        self._vep_mpc_path = vep_mpc_path
-        self._check_vep_path()
-        self._check_vep_conservation_path()
-        self._check_vep_loftee_path()
-        self._check_vep_human_ancestor_fa_path()
-        self._check_vep_gerp_bw_path()
-        self._check_vep_mpc_path()
+        self._vep_mis_db_path = vep_mis_db_path
+        self._vep_mis_info_key = vep_mis_info_key
         self._input_vcf_path = input_vcf_path
-        self._check_input_vcf_path()
+        self._check_validity()
         self._output_vcf_path = input_vcf_path.replace(".vcf", ".vep.vcf")
-
-    def _check_vep_path(self):
+        self._num_proc = 1
+        
+    @staticmethod
+    def _check_path(path: str, message: str, is_dir: bool = False):
         try:
-            check_is_file(self._vep_path)
+            if is_dir:
+                check_is_dir(path)
+            else:
+                check_is_file(path)
         except ValueError:
-            raise ValueError(f"Invalid VEP path: {self._vep_path}")
+            raise ValueError(f"{message}: {path}")
         except Exception:
             raise
 
-    def _check_vep_conservation_path(self):
-        try:
-            check_is_file(self._vep_conservation_path)
-        except ValueError:
-            raise ValueError(f"Invalid VEP resource path (conservation file): {self._vep_conservation_path}")
-        except Exception:
-            raise
+    def _check_validity(self):
+        self._check_path(self._vep_path, "Invalid VEP path")
+        self._check_path(self._vep_conservation_path, "Invalid VEP resource path (conservation file)")
+        self._check_path(self._vep_loftee_path, "Invalid VEP resource path (loftee directory)", is_dir=True)
+        self._check_path(self._vep_human_ancestor_fa_path, "Invalid VEP resource path (human ancestor fasta file)")
+        self._check_path(self._vep_gerp_bw_path, "Invalid VEP resource path (gerp bigwig file)")
+        self._check_path(self._vep_mis_db_path, "Invalid VEP resource path (missense database file)")
+        self._check_path(self._input_vcf_path, "Invalid input VCF path")
 
-    def _check_vep_loftee_path(self):
-        try:
-            check_is_dir(self._vep_loftee_path)
-        except ValueError:
-            raise ValueError(f"Invalid VEP resource path (loftee directory): {self._vep_loftee_path}")
-        except Exception:
-            raise
-
-    def _check_vep_human_ancestor_fa_path(self):
-        try:
-            check_is_file(self._vep_human_ancestor_fa_path)
-        except ValueError:
-            raise ValueError(f"Invalid VEP resource path (human ancestor): {self._vep_human_ancestor_fa_path}")
-        except Exception:
-            raise
-
-    def _check_vep_gerp_bw_path(self):
-        try:
-            check_is_file(self._vep_gerp_bw_path)
-        except ValueError:
-            raise ValueError(f"Invalid VEP resource path (gerp bigwig): {self._vep_gerp_bw_path}")
-        except Exception:
-            raise
-
-    def _check_vep_mpc_path(self):
-        try:
-            check_is_file(self._vep_mpc_path)
-        except ValueError:
-            raise ValueError(f"Invalid VEP resource path (MPC): {self._vep_mpc_path}")
-        except Exception:
-            raise
-
-    def _check_input_vcf_path(self):
-        try:
-            check_is_file(self._input_vcf_path)
-        except ValueError:
-            raise ValueError(f"Invalid VCF path: {self._input_vcf_path}")
-        except Exception:
-            raise
+    def set_num_proc(self, num_proc: int):
+        self._num_proc = num_proc
 
     @property
     def vep_path(self) -> str:
@@ -102,8 +68,12 @@ class VepCmdGenerator:
         return self._vep_gerp_bw_path
 
     @property
-    def vep_mpc_path(self) -> str:
-        return self._vep_mpc_path
+    def vep_mis_db_path(self) -> str:
+        return self._vep_mis_db_path
+
+    @property
+    def vep_mis_info_key(self) -> str:
+        return self._vep_mis_info_key
 
     @property
     def input_vcf_path(self) -> str:
@@ -133,6 +103,7 @@ class VepCmdGenerator:
         result += self.cmd_option_basic
         result += self.cmd_option_pick_one_gene_isoform
         result += self.cmd_option_pick_nearest_gene
+        result += self.cmd_option_fork
         return result
 
     @property
@@ -148,14 +119,13 @@ class VepCmdGenerator:
             "--vcf",
             "--no_stats",
             "--plugin",
-            ''.join(['LoF,conservation_file:', self._vep_conservation_path,
-                     ',loftee_path:', self._vep_loftee_path,
-                     ',human_ancestor_fa:', self._vep_human_ancestor_fa_path,
-                     ',gerp_bigwig:', self._vep_gerp_bw_path]),
-            "--dir_plugins",
-            self._vep_loftee_path,
-            "--plugin",
-            ''.join(["MPC,", self._vep_mpc_path]),
+            ",".join(['LoF',
+                      'loftee_path:' + self._vep_loftee_path,
+                      'conservation_file:' + self._vep_conservation_path,
+                      'human_ancestor_fa:' + self._vep_human_ancestor_fa_path,
+                      'gerp_bigwig:' + self._vep_gerp_bw_path]),
+            "--custom",
+            ",".join([self._vep_mis_db_path, "MisDb", 'vcf', "exact", "0", self.vep_mis_info_key]),
         ]
 
     @property
@@ -174,3 +144,7 @@ class VepCmdGenerator:
         """Return options in order to pick the nearest gene"""
         return ["--distance", "2000", "--nearest", "symbol", "--symbol"]
 
+    @property
+    def cmd_option_fork(self) -> list:
+        """Return options in order to use forking"""
+        return ["--fork", str(self._num_proc)]

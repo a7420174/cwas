@@ -119,6 +119,15 @@ def annotation() -> argparse.ArgumentParser:
         type=Path,
         help="Directory where output file will be saved",
     )
+    result.add_argument(
+        "-p",
+        "--num_proc",
+        dest="num_proc",
+        required=False,
+        type=int,
+        help="Number of worker processes used to fork when running VEP",
+        default=1,
+    )
     return result
 
 
