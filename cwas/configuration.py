@@ -73,6 +73,14 @@ class Configuration(Runnable):
             help="Path to Variant Effect Predictor (VEP)",
         )
         parser.add_argument(
+            "-vcache",
+            "--vep_cache_dir",
+            dest="vep_cache_dir",
+            required=False,
+            type=Path,
+            help="Path to VEP resource (cache directory)",
+        )
+        parser.add_argument(
             "-vconv",
             "--vep_conservation",
             dest="vep_conservation",
@@ -144,6 +152,7 @@ class Configuration(Runnable):
         self.data_dir = Path(user_config.get("ANNOTATION_DATA_DIR"))
         self.gene_matrix = Path(user_config.get("GENE_MATRIX"))
         self.vep = Path(user_config.get("VEP"))
+        self.vep_cache_dir = Path(user_config.get("VEP_CACHE_DIR"))
         self.vep_conservation = Path(user_config.get("VEP_CONSERVATION_FILE"))
         self.vep_loftee = Path(user_config.get("VEP_LOFTEE"))
         self.vep_human_ancestor_fa = Path(user_config.get("VEP_HUMAN_ANCESTOR_FA"))
@@ -176,6 +185,7 @@ class Configuration(Runnable):
     def _check_attr_from_user_config(self):
         check.check_is_file(self.user_config)
         check.check_is_dir(self.data_dir)
+        check.check_is_dir(self.vep_cache_dir)        
         check.check_is_file(self.vep_conservation)
         check.check_is_dir(self.vep_loftee)
         check.check_is_file(self.vep_human_ancestor_fa)
@@ -256,6 +266,7 @@ class Configuration(Runnable):
     def _set_env(self):
         log.print_progress("Set CWAS environment variables")
         self.set_env("VEP", getattr(self, "vep"))
+        self.set_env("VEP_CACHE_DIR", getattr(self, "vep_cache_dir"))
         self.set_env("VEP_CONSERVATION_FILE", getattr(self, "vep_conservation"))
         self.set_env("VEP_LOFTEE", getattr(self, "vep_loftee"))
         self.set_env("VEP_HUMAN_ANCESTOR_FA", getattr(self, "vep_human_ancestor_fa"))

@@ -6,12 +6,13 @@ from cwas.utils.check import check_is_dir
 
 
 class VepCmdGenerator:
-    def __init__(self, vep_path: str,
+    def __init__(self, vep_path: str, vep_cache_dir_path: str,
                  vep_conservation_path: str, vep_loftee_path: str, 
                  vep_human_ancestor_fa_path: str, vep_gerp_bw_path: str,
                  vep_mis_db_path: str, vep_mis_info_key: str,
                  input_vcf_path: str) -> None:
         self._vep_path = vep_path
+        self._vep_cache_dir_path = vep_cache_dir_path
         self._vep_conservation_path = vep_conservation_path
         self._vep_loftee_path = vep_loftee_path
         self._vep_human_ancestor_fa_path = vep_human_ancestor_fa_path
@@ -43,6 +44,7 @@ class VepCmdGenerator:
         self._check_path(self._vep_gerp_bw_path, "Invalid VEP resource path (gerp bigwig file)")
         self._check_path(self._vep_mis_db_path, "Invalid VEP resource path (missense database file)")
         self._check_path(self._input_vcf_path, "Invalid input VCF path")
+        self._check_path(self._vep_cache_dir_path, "Invalid VEP cache directory path", is_dir=True)
 
     def set_num_proc(self, num_proc: int):
         self._num_proc = num_proc
@@ -50,6 +52,10 @@ class VepCmdGenerator:
     @property
     def vep_path(self) -> str:
         return self._vep_path
+
+    @property
+    def vep_cache_dir_path(self) -> str:
+        return self._vep_cache_dir_path
 
     @property
     def vep_conservation_path(self) -> str:
@@ -113,6 +119,8 @@ class VepCmdGenerator:
             "--assembly",
             "GRCh38",
             "--offline",
+            "--dir_cache",
+            self._vep_cache_dir_path,
             "--force_overwrite",
             "--format",
             "vcf",
