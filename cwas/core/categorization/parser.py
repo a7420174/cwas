@@ -6,48 +6,68 @@ algorithm.
 """
 from io import TextIOWrapper
 import pathlib
-import re
+import re, gzip, os
+os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 
 import numpy as np
 import pandas as pd
+from pyspark import SparkConf, SparkContext
+from multiprocessing import cpu_count
 from cwas.core.common import int_to_bit_arr
-from cwas.utils.log import print_err
+from cwas.utils.log import print_err, print_log
 
+import pyspark.sql as ps
+from pyspark.sql.functions import udf
 
 # TODO: Make the code much clearer
-def parse_annotated_vcf(vcf_path: pathlib.Path) -> pd.DataFrame:
+def parse_annotated_vcf(vcf_path: pathlib.Path) -> ps.DataFrame:
     """ Parse a Variant Calling File (VCF) that includes Variant Effect
     Predictor (VEP) and CWAS annotation information and make a
     pandas.DataFrame object listing annotated variants.
     """
+    conf = SparkConf()
+    conf.set('spark.driver.memory', '200g')\
+        .set("spark.driver.maxResultSize", '100g')
+    # Pandas API on Spark automatically uses this Spark context with the configurations set.
+    SparkContext(conf=conf)
+    
+    spark = ps.SparkSession.builder.getOrCreate()
+    spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "true")
+    spark.conf.set("spark.sql.files.minPartitionNum", cpu_count()*4)
+
     variant_col_names = []
-    variant_rows = []  # Item: a list of values of each column
     csq_field_names = []  # CSQ is information from VEP
     annot_field_names = []  # Custom annotation field names
 
     # Read and parse the input VCF
-    with vcf_path.open("r") as vep_vcf_file:
-        for line in vep_vcf_file:
-            if line.startswith("#"):  # Comments
-                if line.startswith("##INFO=<ID=CSQ"):
-                    csq_field_names = _parse_vcf_info_field(line)
-                elif line.startswith("##INFO=<ID=ANNOT"):
-                    annot_field_names = _parse_annot_field(line)
-                elif line.startswith("#CHROM"):
-                    variant_col_names = _parse_vcf_header_line(line)
-            else:  # Rows of variant information follow the comments.
-                assert variant_col_names, "The VCF does not have column names."
-                assert csq_field_names, "The VCF does not have CSQ information."
-                assert annot_field_names, (
-                    "The VCF does not have annotation " "information."
-                )
-                variant_row = line.rstrip("\n").split("\t")
-                variant_rows.append(variant_row)
+    if vcf_path.suffix == ".gz":
+        vep_vcf_file = gzip.open(vcf_path, "rt")
+    else:
+        vep_vcf_file = vcf_path.open("r")
+    for line in vep_vcf_file:
+        if line.startswith("#"):  # Comments
+            if line.startswith("##INFO=<ID=CSQ"):
+                csq_field_names = _parse_vcf_info_field(line)
+            elif line.startswith("##INFO=<ID=ANNOT"):
+                annot_field_names = _parse_annot_field(line)
+            elif line.startswith("#CHROM"):
+                variant_col_names = _parse_vcf_header_line(line)
+        else:  # Rows of variant information follow the comments.
+            assert variant_col_names, "The VCF does not have column names."
+            assert csq_field_names, "The VCF does not have CSQ information."
+            assert annot_field_names, (
+                "The VCF does not have annotation " "information."
+            )
+            break
+    vep_vcf_file.close()
+    
+    schema = ', '.join([f'{col} INT' if col == 'POS' else f'{col} STRING' for col in variant_col_names])
+    result = spark.read.csv(str(vcf_path), sep='\t', header=False, comment='#', schema=schema)
 
-    result = pd.DataFrame(variant_rows, columns=variant_col_names)
+    print_log("INFO", "The number of partitions: {}".format(result.rdd.getNumPartitions()))
     try:
-        info_df = _parse_info_column(
-            result["INFO"], csq_field_names, annot_field_names
+        result = _parse_info_column(
+            result, csq_field_names, annot_field_names
         )
     except KeyError:
         print_err(
@@ -56,10 +76,10 @@ def parse_annotated_vcf(vcf_path: pathlib.Path) -> pd.DataFrame:
         )
         raise
 
-    result.drop(columns="INFO", inplace=True)
-    result = pd.concat([result, info_df], axis="columns")
-
-    return result
+    pdf_result = result.toPandas()
+    spark.stop()
+    
+    return pdf_result
 
 
 def _parse_vcf_info_field(line):
@@ -84,20 +104,25 @@ def _parse_vcf_header_line(line):
 
 
 def _parse_info_column(
-    info_column: pd.Series, csq_field_names: list, annot_field_names: list
+    df: ps.DataFrame, csq_field_names: list, annot_field_names: list
 ) -> pd.DataFrame:
     """ Parse the INFO column and make a pd.DataFrame object """
-    info_values = info_column.values
-    info_dicts = list(map(_parse_info_str, info_values))
-    info_df = pd.DataFrame(info_dicts)
-    csq_df = _parse_csq_column(info_df["CSQ"], csq_field_names)
-    annot_df = _parse_annot_column(info_df["ANNOT"], annot_field_names)
-    info_df.drop(columns=["CSQ", "ANNOT"], inplace=True)
-    info_df = pd.concat([info_df, csq_df, annot_df], axis="columns")
+    _parse_csq_column_with_list = udf(lambda csq: _parse_csq_column(csq, csq_field_names),
+                                      ps.types.MapType(ps.types.StringType(), ps.types.StringType()))
+    _parse_annot_column_with_list = udf(lambda annot: _parse_annot_column(annot, annot_field_names), 
+                                        ps.types.MapType(ps.types.StringType(), ps.types.IntegerType()))
+    df = df.withColumn('INFO', _parse_info_str(df['INFO']))
+    info_keys = df.select(ps.functions.map_keys("INFO").alias("keys")).take(1)[0]['keys']
+    df = df.withColumns({key: df['INFO'][key] for key in info_keys})
+    df = df.withColumns({'CSQ': _parse_csq_column_with_list(df['CSQ']),
+                         'ANNOT': _parse_annot_column_with_list(df['ANNOT'].cast(ps.types.IntegerType()))})
+    df = df.withColumns({key: df['CSQ'][key] for key in csq_field_names})
+    df = df.withColumns({key: df['ANNOT'][key] for key in annot_field_names})
+    df = df.drop("INFO", "CSQ", "ANNOT")
 
-    return info_df
+    return df
 
-
+@udf(returnType=ps.types.MapType(ps.types.StringType(), ps.types.StringType()))
 def _parse_info_str(info_str: str) -> dict:
     """ Parse the string of the INFO field to make a dictionary """
     info_dict = {}
@@ -109,37 +134,29 @@ def _parse_info_str(info_str: str) -> dict:
 
     return info_dict
 
-
 def _parse_csq_column(
-    csq_column: pd.Series, csq_field_names: list
-) -> pd.DataFrame:
-    """ Parse the CSQ strings in the CSQ column and make a pd.DataFrame
-    object
-    """
-    csq_values = csq_column.values
-    csq_records = list(map(lambda csq_str: csq_str.split("|"), csq_values))
-    csq_df = pd.DataFrame(csq_records, columns=csq_field_names)
+    csq_field: str, csq_field_names: list
+) -> dict:
+    """ Parse the string of the INFO field to make a dictionary """
+    csq_dict = {}
+    csq_record = csq_field.split("|")
 
-    return csq_df
+    for key, value in zip(csq_field_names, csq_record):
+        csq_dict[key] = value
 
+    return csq_dict
 
 def _parse_annot_column(
-    annot_column: pd.Series, annot_field_names: list
-) -> pd.DataFrame:
-    """ Parse the annotation integer in the ANNOT column and make a
-    pd.DataFrame object
-    """
-    annot_ints = annot_column.values.astype(int)
+    annot_int: int, annot_field_names: list
+) -> dict:
+    """ Parse the string of the INFO field to make a dictionary """
+    annot_dict = {}
     annot_field_cnt = len(annot_field_names)
-    annot_records = list(
-        map(
-            lambda annot_int: int_to_bit_arr(annot_int, annot_field_cnt),
-            annot_ints,
-        )
-    )
-    annot_df = pd.DataFrame(annot_records, columns=annot_field_names)
-
-    return annot_df
+    annot_record = int_to_bit_arr(annot_int, annot_field_cnt)
+    for key, value in zip(annot_field_names, annot_record):
+        annot_dict[key] = int(value)
+        
+    return annot_dict
 
 
 def parse_gene_matrix(gene_matrix_path: pathlib.Path) -> dict:
