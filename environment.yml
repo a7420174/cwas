@@ -21,3 +21,5 @@ dependencies:
   - perl-dbd-sqlite
   - perl-db
   - perl-bio-db-hts
+  - seaborn
+  
