@@ -129,8 +129,16 @@ class Categorization(Runnable):
         return self._category_domain
 
     @property
+    def mis_info_key(self) -> str:
+        return self.get_env("VEP_MIS_INFO_KEY")
+
+    @property
+    def mis_thres(self) -> float:
+        return float(self.get_env("VEP_MIS_THRES"))
+
+    @property
     def categorizer(self) -> Categorizer:
-        categorizer = Categorizer(self.category_domain, self.gene_matrix)
+        categorizer = Categorizer(self.category_domain, self.gene_matrix, self.mis_info_key, self.mis_thres)
         return categorizer
 
     @property

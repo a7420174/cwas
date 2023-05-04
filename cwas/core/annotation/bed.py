@@ -1,6 +1,6 @@
 from collections import deque
 
-import pysam
+import pysam, gzip
 
 
 # TODO: Make this code much clearer
