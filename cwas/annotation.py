@@ -134,11 +134,15 @@ class Annotation(Runnable):
                 True,
             )
             return
-        _annotate_using_bed(
+
+        annotate_vcf = _annotate_using_bed(
             self.vep_output_vcf_gz_path,
             self.annotated_vcf_path,
             self.get_env("MERGED_BED"),
+            self.num_proc,
         )
+
+        annotate_vcf.bed_custom_annotate()
 
     def update_env(self):
         self.set_env("ANNOTATED_VCF", self.annotated_vcf_path)
