@@ -19,6 +19,7 @@ from itertools import product
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from cwas.core.categorization.category import Category
 from cwas.core.categorization.utils import extract_sublist_by_int, get_idx_dict
 
@@ -42,7 +43,7 @@ class Categorizer:
     def get_intersection(self, annotated_vcf: pd.DataFrame):
         result = defaultdict(lambda: defaultdict(int))
 
-        for annotation_term_lists in self.annotate_each_variant(annotated_vcf):
+        for annotation_term_lists in tqdm(self.annotate_each_variant(annotated_vcf), total=len(annotated_vcf)):
             for combination in product(*annotation_term_lists):
                 for combination2 in product(*annotation_term_lists):
                     result[Category(*combination)][Category(*combination2)] += 1

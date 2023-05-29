@@ -21,9 +21,6 @@ class annotate:
     @property
     def annot_bed_path(self) -> str:
         return self._annot_bed_path
-    @property
-    def n_cores(self) -> int:
-        return self._n_cores
 
     def bed_custom_annotate(self):
         with pysam.TabixFile(self.in_vcf_gz_path) as in_vcf_file, pysam.TabixFile(

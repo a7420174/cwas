@@ -176,7 +176,7 @@ def categorization() -> argparse.ArgumentParser:
 
 def binomial_test() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
-        description="Arguments of Burden Tests",
+        description="Arguments of Binomial Tests",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     default_workspace = dotenv.dotenv_values(dotenv_path=Path.home() / ".cwas_env").get("CWAS_WORKSPACE")
@@ -227,7 +227,7 @@ def binomial_test() -> argparse.ArgumentParser:
 
 def permutation_test() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
-        description="Arguments of Burden Tests",
+        description="Arguments of Permutation Tests",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     default_workspace = dotenv.dotenv_values(dotenv_path=Path.home() / ".cwas_env").get("CWAS_WORKSPACE")

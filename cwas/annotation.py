@@ -15,6 +15,7 @@ from cwas.core.annotation.vep import VepCmdGenerator
 from cwas.runnable import Runnable
 from cwas.utils.check import check_is_file
 from cwas.utils.check import check_is_dir
+from cwas.utils.check import check_num_proc
 from cwas.utils.cmd import CmdExecutor, compress_using_bgzip, index_using_tabix
 from cwas.utils.log import print_arg, print_log, print_progress
 
@@ -41,6 +42,15 @@ class Annotation(Runnable):
             help="Target VCF file",
         )
         parser.add_argument(
+            "-n",
+            "--num_cores",
+            dest="n_cores",
+            required=False,
+            default=1,
+            type=int,
+            help="Number of cores used for annotation processes (default: 1)",
+        )
+        parser.add_argument(
             "-o_dir",
             "--output_directory",
             dest="output_dir_path",
@@ -54,16 +64,22 @@ class Annotation(Runnable):
     @staticmethod
     def _print_args(args: argparse.Namespace):
         print_arg("Target VCF file", args.vcf_path)
-        print_arg("Target VCF file", args.output_dir_path)
+        print_arg("Output directory", args.output_dir_path)
+        print_arg("Number of cores", args.n_cores)
 
     @staticmethod
     def _check_args_validity(args: argparse.Namespace):
         check_is_file(args.vcf_path)
         check_is_dir(args.output_dir_path)
+        check_num_proc(args.n_cores)
 
     @property
     def vcf_path(self):
         return self.args.vcf_path.resolve()
+    
+    @property
+    def n_cores(self):
+        return self.args.n_cores
 
     @property
     def output_dir_path(self):
@@ -72,10 +88,13 @@ class Annotation(Runnable):
     @property
     def vep_cmd(self):
         vep_cmd_generator = VepCmdGenerator(
-            self.get_env("VEP"),
-            self.get_env("VEP_CONSERVATION_FILE"), self.get_env("VEP_LOFTEE"), self.get_env("VEP_HUMAN_ANCESTOR_FA"), self.get_env("VEP_GERP_BIGWIG"), self.get_env("VEP_MPC"),
+            self.get_env("VEP"), self.get_env("VEP_CACHE_DIR"),
+            self.get_env("VEP_CONSERVATION_FILE"), self.get_env("VEP_LOFTEE"), 
+            self.get_env("VEP_HUMAN_ANCESTOR_FA"), self.get_env("VEP_GERP_BIGWIG"), 
+            self.get_env("VEP_MIS_DB"), self.get_env("VEP_MIS_INFO_KEY"),
             str(self.vcf_path)
         )
+        vep_cmd_generator.set_num_proc(self.n_cores)
         vep_cmd_generator.output_vcf_path = self.vep_output_vcf_path
         return vep_cmd_generator.cmd
 
@@ -83,7 +102,10 @@ class Annotation(Runnable):
     def vep_output_vcf_path(self):
         return (
             f"{self.output_dir_path}/"
-            f"{self.vcf_path.name.replace('.vcf', '.vep.vcf')}"
+            f"{self.vcf_path.name.replace('.vcf.gz', '.vep.vcf')}"
+            if self.vcf_path.suffix == ".gz"
+            else f"{self.output_dir_path}/"
+                 f"{self.vcf_path.name.replace('.vcf', '.vep.vcf')}"
         )
 
     @property
@@ -94,7 +116,10 @@ class Annotation(Runnable):
     def annotated_vcf_path(self):
         return (
             f"{self.output_dir_path}/"
-            f"{self.vcf_path.name.replace('.vcf', '.annotated.vcf')}"
+            f"{self.vcf_path.name.replace('.vcf.gz', '.annotated.vcf')}"
+            if self.vcf_path.suffix == ".gz"
+            else f"{self.output_dir_path}/"
+                 f"{self.vcf_path.name.replace('.vcf', '.annotated.vcf')}"
         )
 
     def run(self):
@@ -121,7 +146,8 @@ class Annotation(Runnable):
 
     def process_vep_vcf(self):
         print_progress("Compress the VEP output using bgzip")
-        vcf_gz_path = compress_using_bgzip(self.vep_output_vcf_path)
+        vcf_gz_path = compress_using_bgzip(self.vep_output_vcf_path,
+                                           threads=self.n_cores)
         print_progress("Create an index of the VEP output using tabix")
         index_using_tabix(vcf_gz_path)
 
@@ -134,12 +160,12 @@ class Annotation(Runnable):
                 True,
             )
             return
-
+        
         annotate_vcf = _annotate_using_bed(
             self.vep_output_vcf_gz_path,
             self.annotated_vcf_path,
             self.get_env("MERGED_BED"),
-            self.num_proc,
+            self.n_cores,
         )
 
         annotate_vcf.bed_custom_annotate()

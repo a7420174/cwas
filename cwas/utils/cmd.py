@@ -47,7 +47,7 @@ class CmdExecutor:
 
 
 def compress_using_bgzip(
-    input_file_path: Path, force_overwrite: bool = False
+    input_file_path: Path, force_overwrite: bool = False, threads: int = 1
 ) -> Path:
     result = Path(str(input_file_path) + ".gz")
     if not force_overwrite and result.exists():
@@ -57,6 +57,7 @@ def compress_using_bgzip(
         )
     else:
         args = [str(input_file_path)]
+        args.append("-@" + str(threads))
         if force_overwrite:
             args.append("-f")
         CmdExecutor("bgzip", args).execute_raising_err()
