@@ -108,7 +108,9 @@ class Preparation(Runnable):
         )
         log.print_progress("Compress your BED file.")
         bed_gz_path = compress_using_bgzip(
-            merge_bed_path, self.force_overwrite
+            merge_bed_path, 
+            force_overwrite=self.force_overwrite,
+            threads=self.num_proc
         )
 
         log.print_progress("Make an index of your BED file.")
@@ -117,6 +119,7 @@ class Preparation(Runnable):
         return bed_gz_path, bed_idx_path
 
     def _save_as_env(self, bed_gz_path: Path, bed_idx_path: Path):
+        log.print_progress("Set CWAS environment variables")
         self.set_env("MERGED_BED", bed_gz_path)
         self.set_env("MERGED_BED_INDEX", bed_idx_path)
         self.save_env()

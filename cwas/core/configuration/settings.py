@@ -62,6 +62,10 @@ _redundant_domain_pairs = {
     },
 }
 
+_AD_gene_sets = {f"Morabito2021.DEG.{direction}.{cell_type}" for direction in ["up", "down"] for cell_type in ["MG", "EX", "ASC", "ODC", "INH", "OPC"]}
+_AD_regions = {'AD.MG.DARs', 'AD.EX.DARs', 'AD.ASC.DARs', 'AD.ODC.DARs', 'AD.MG.cCREs', 'AD.ODC.cCREs', 'AD.ASC.cCREs', 'AD.INH.cCREs', 'AD.EX.cCREs', 'AD.OPC.cCREs'}
+_AD_redundant_domains = {(gene_set, region) for gene_set in _AD_gene_sets for region in _AD_regions if region.split('.')[1] != gene_set.split('.')[3]}
+_redundant_domain_pairs[("gene_list", "region")] = _AD_redundant_domains
 
 def get_default_domains() -> dict:
     return deepcopy(_default_domains)
