@@ -7,7 +7,6 @@ algorithm.
 from io import TextIOWrapper
 import pathlib
 import re, gzip, os
-os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 
 import numpy as np
 import pandas as pd
@@ -20,16 +19,18 @@ import pyspark.sql as ps
 from pyspark.sql.functions import udf
 
 # TODO: Make the code much clearer
-def parse_annotated_vcf(vcf_path: pathlib.Path) -> ps.DataFrame:
+def parse_annotated_vcf(vcf_path: pathlib.Path) -> pd.DataFrame:
     """ Parse a Variant Calling File (VCF) that includes Variant Effect
     Predictor (VEP) and CWAS annotation information and make a
     pandas.DataFrame object listing annotated variants.
     """
+    os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
+    
     conf = SparkConf()
     conf.set('spark.driver.memory', '200g')\
         .set("spark.driver.maxResultSize", '100g')
     # Pandas API on Spark automatically uses this Spark context with the configurations set.
-    SparkContext(conf=conf)
+    sc = SparkContext(conf=conf)
     
     spark = ps.SparkSession.builder.getOrCreate()
     spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "true")
@@ -77,7 +78,9 @@ def parse_annotated_vcf(vcf_path: pathlib.Path) -> ps.DataFrame:
         raise
 
     pdf_result = result.toPandas()
+    result.unpersist()
     spark.stop()
+    sc.stop()
     
     return pdf_result
 
@@ -105,7 +108,7 @@ def _parse_vcf_header_line(line):
 
 def _parse_info_column(
     df: ps.DataFrame, csq_field_names: list, annot_field_names: list
-) -> pd.DataFrame:
+) -> ps.DataFrame:
     """ Parse the INFO column and make a pd.DataFrame object """
     _parse_csq_column_with_list = udf(lambda csq: _parse_csq_column(csq, csq_field_names),
                                       ps.types.MapType(ps.types.StringType(), ps.types.StringType()))
