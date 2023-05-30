@@ -73,6 +73,14 @@ class Configuration(Runnable):
             help="Path to Variant Effect Predictor (VEP)",
         )
         parser.add_argument(
+            "-vcache",
+            "--vep_cache_dir",
+            dest="vep_cache_dir",
+            required=False,
+            type=Path,
+            help="Path to VEP resource (cache directory)",
+        )
+        parser.add_argument(
             "-vconv",
             "--vep_conservation",
             dest="vep_conservation",
@@ -113,6 +121,14 @@ class Configuration(Runnable):
             help="Path to your VEP resource (damaging missense database)",
         )
         parser.add_argument(
+            "-vmk",
+            "--vep_mis_info_key",
+            dest="vep_mis_info_key",
+            required=False,
+            type=Path,
+            help="VCF info field key name in damaging missense database",
+        )
+        parser.add_argument(
             "-vmt",
             "--vep_mis_thres",
             dest="vep_mis_thres",
@@ -136,13 +152,14 @@ class Configuration(Runnable):
         self.data_dir = Path(user_config.get("ANNOTATION_DATA_DIR"))
         self.gene_matrix = Path(user_config.get("GENE_MATRIX"))
         self.vep = Path(user_config.get("VEP"))
+        self.vep_cache_dir = Path(user_config.get("VEP_CACHE_DIR"))
         self.vep_conservation = Path(user_config.get("VEP_CONSERVATION_FILE"))
         self.vep_loftee = Path(user_config.get("VEP_LOFTEE"))
         self.vep_human_ancestor_fa = Path(user_config.get("VEP_HUMAN_ANCESTOR_FA"))
         self.vep_gerp_bw = Path(user_config.get("VEP_GERP_BIGWIG"))
         self.vep_mis_db = Path(user_config.get("VEP_MIS_DB"))
+        self.vep_mis_info_key = user_config.get("VEP_MIS_INFO_KEY")
         self.vep_mis_thres = Path(user_config.get("VEP_MIS_THRES"))
-
         annot_key_conf = user_config.get("ANNOTATION_KEY_CONFIG")
         self.annot_key_conf = (
             None if not annot_key_conf else Path(annot_key_conf)
@@ -168,6 +185,7 @@ class Configuration(Runnable):
     def _check_attr_from_user_config(self):
         check.check_is_file(self.user_config)
         check.check_is_dir(self.data_dir)
+        check.check_is_dir(self.vep_cache_dir)        
         check.check_is_file(self.vep_conservation)
         check.check_is_dir(self.vep_loftee)
         check.check_is_file(self.vep_human_ancestor_fa)
@@ -248,11 +266,13 @@ class Configuration(Runnable):
     def _set_env(self):
         log.print_progress("Set CWAS environment variables")
         self.set_env("VEP", getattr(self, "vep"))
+        self.set_env("VEP_CACHE_DIR", getattr(self, "vep_cache_dir"))
         self.set_env("VEP_CONSERVATION_FILE", getattr(self, "vep_conservation"))
         self.set_env("VEP_LOFTEE", getattr(self, "vep_loftee"))
         self.set_env("VEP_HUMAN_ANCESTOR_FA", getattr(self, "vep_human_ancestor_fa"))
         self.set_env("VEP_GERP_BIGWIG", getattr(self, "vep_gerp_bw"))
         self.set_env("VEP_MIS_DB", getattr(self, "vep_mis_db"))
+        self.set_env("VEP_MIS_INFO_KEY", getattr(self, "vep_mis_info_key"))
         self.set_env("VEP_MIS_THRES", getattr(self, "vep_mis_thres"))
         self.set_env("ANNOTATION_DATA", self.data_dir_symlink)
         self.set_env("GENE_MATRIX", self.gene_matrix_symlink)
