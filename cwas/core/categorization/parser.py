@@ -6,7 +6,7 @@ algorithm.
 """
 from io import TextIOWrapper
 import pathlib
-import re, gzip, os
+import re, gzip, os, gc
 
 import numpy as np
 import pandas as pd
@@ -81,6 +81,7 @@ def parse_annotated_vcf(vcf_path: pathlib.Path) -> pd.DataFrame:
     result.unpersist()
     spark.stop()
     sc.stop()
+    gc.collect()
     
     return pdf_result
 
